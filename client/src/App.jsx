@@ -33,6 +33,7 @@ export default function App() {
     ae: null,
     account: null,
     label: null,
+    pocId: null,
   });
   const [selectedTask, setSelectedTask] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
@@ -250,6 +251,7 @@ export default function App() {
           aes={aes}
           aeColors={aeColors}
           allLabels={allLabels}
+          pocs={pocs}
           filters={filters}
           onChange={setFilters}
         />
@@ -263,6 +265,7 @@ export default function App() {
             accounts={accounts}
             accountMap={accountMap}
             aeColors={aeColors}
+            pocs={pocs}
             filters={filters}
             showArchive={showArchive}
             hideDemoWorkshops

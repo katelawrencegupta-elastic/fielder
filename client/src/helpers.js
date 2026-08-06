@@ -1,31 +1,74 @@
 export const AE_COLOR_FALLBACK = {
-  "Corey Fallarino": { bg: "#1a2e1a", color: "#7acf9a" },
-  "Peter Antoinette": { bg: "#2a1a2e", color: "#c87adf" },
-  "Timothy Webster (Tim)": { bg: "#2a2218", color: "#dfb87a" },
+  "Corey Fallarino": { bg: "#e3f5ea", color: "#1f6b3f" },
+  "Peter Antoinette": { bg: "#f3e8f6", color: "#7a3d8f" },
+  "Timothy Webster (Tim)": { bg: "#f5eee3", color: "#8a5a20" },
 };
 
 const LABEL_PALETTE = [
-  { bg: "#2a1e08", color: "#f0b44a" },
-  { bg: "#2a0e22", color: "#e87ab8" },
-  { bg: "#0c2a18", color: "#4dc884" },
-  { bg: "#0e1a40", color: "#6a9ef5" },
-  { bg: "#2a0e0e", color: "#e87070" },
-  { bg: "#1e0e38", color: "#a87af5" },
-  { bg: "#0a2820", color: "#3dcfaa" },
-  { bg: "#2a1808", color: "#e8904a" },
+  { bg: "#f8efd9", color: "#8a5a10" },
+  { bg: "#f8e3ef", color: "#9a3a6a" },
+  { bg: "#e3f4ea", color: "#1f7a45" },
+  { bg: "#e4ebf8", color: "#2f5aaa" },
+  { bg: "#f8e4e4", color: "#a83838" },
+  { bg: "#eee6f8", color: "#6a3aaa" },
+  { bg: "#e0f4ef", color: "#1a7a68" },
+  { bg: "#f6eadc", color: "#9a5520" },
 ];
+
+function parseHex(hex) {
+  if (!hex || typeof hex !== "string") return null;
+  const h = hex.replace("#", "").trim();
+  if (!/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(h)) return null;
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  return [
+    parseInt(full.slice(0, 2), 16),
+    parseInt(full.slice(2, 4), 16),
+    parseInt(full.slice(4, 6), 16),
+  ];
+}
+
+function toHex([r, g, b]) {
+  return `#${[r, g, b].map((x) => Math.max(0, Math.min(255, x)).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Turn a saturated accent into a light pill (pastel bg + darker text). */
+export function softPillFromAccent(accent, fallback = "#6a7a96") {
+  const rgb = parseHex(accent) || parseHex(fallback);
+  const [r, g, b] = rgb;
+  const bg = toHex([
+    Math.round(r * 0.16 + 255 * 0.84),
+    Math.round(g * 0.16 + 255 * 0.84),
+    Math.round(b * 0.16 + 255 * 0.84),
+  ]);
+  const color = toHex([
+    Math.round(r * 0.52),
+    Math.round(g * 0.52),
+    Math.round(b * 0.52),
+  ]);
+  return { bg, color, swatch: accent || fallback };
+}
 
 export function hashColor(name) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   const hue = h % 360;
-  return { bg: `hsl(${hue},35%,14%)`, color: `hsl(${hue},55%,68%)` };
+  return {
+    bg: `hsl(${hue}, 40%, 92%)`,
+    color: `hsl(${hue}, 45%, 32%)`,
+    swatch: `hsl(${hue}, 55%, 48%)`,
+  };
 }
 
 export function buildAccountMap(list) {
   const m = {};
   list.forEach((a) => {
-    m[a.key] = a;
+    const soft = softPillFromAccent(a.color || a.bg);
+    m[a.key] = {
+      ...a,
+      bg: soft.bg,
+      color: soft.color,
+      swatch: a.color || soft.swatch,
+    };
   });
   return m;
 }
@@ -34,8 +77,13 @@ export function buildAeColors(list) {
   const c = {};
   list.forEach((a) => {
     if (!a.ae || c[a.ae]) return;
-    if (a.aeBg && a.aeColor) c[a.ae] = { bg: a.aeBg, color: a.aeColor };
-    else c[a.ae] = AE_COLOR_FALLBACK[a.ae] || hashColor(a.ae);
+    if (a.aeColor) {
+      c[a.ae] = softPillFromAccent(a.aeColor);
+    } else if (AE_COLOR_FALLBACK[a.ae]) {
+      c[a.ae] = AE_COLOR_FALLBACK[a.ae];
+    } else {
+      c[a.ae] = hashColor(a.ae);
+    }
   });
   return c;
 }
@@ -77,10 +125,10 @@ export function formatDueDate(d) {
         ? `Overdue · ${dt.toLocaleDateString([], { month: "short", day: "numeric" })}`
         : dt.toLocaleDateString([], { month: "short", day: "numeric" });
   const colors = {
-    overdue: { bg: "#2e0d0d", color: "#e87070" },
-    today: { bg: "#0b2a20", color: "#3dcfa0" },
-    soon: { bg: "#2e1f08", color: "#e8a44a" },
-    upcoming: { bg: "#1a1e28", color: "#6a7a96" },
+    overdue: { bg: "#f8e4e4", color: "#a83838" },
+    today: { bg: "#e3f4ea", color: "#1f7a45" },
+    soon: { bg: "#f8efd9", color: "#8a5a10" },
+    upcoming: { bg: "#eef1f4", color: "#5a6a7a" },
   };
   return { label, ...(colors[st] || colors.upcoming) };
 }

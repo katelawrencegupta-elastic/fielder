@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { formatDueDate, pillColor, pillStyle } from "../helpers.js";
+import { formatDueDate, pillColor, pillStyle, softPillFromAccent } from "../helpers.js";
 
 export function AccountPill({ akey, accountMap, onChange }) {
-  const a = accountMap[akey] || { bg: "#1a1e28", color: "#6a7a96", long: akey || "—" };
+  const a = accountMap[akey] || softPillFromAccent("#6a7a96");
+  const label = a.long || a.label || akey || "—";
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -16,7 +17,7 @@ export function AccountPill({ akey, accountMap, onChange }) {
   }, [open]);
 
   if (!onChange) {
-    return <span style={pillStyle(a.bg, a.color)}>{a.long || a.label || akey}</span>;
+    return <span style={pillStyle(a.bg, a.color)}>{label}</span>;
   }
 
   const options = Object.values(accountMap).sort(
@@ -31,7 +32,7 @@ export function AccountPill({ akey, accountMap, onChange }) {
         style={{ ...pillStyle(a.bg, a.color), border: "none", cursor: "pointer" }}
         title="Reassign account"
       >
-        {a.long || a.label || akey}{" "}
+        {label}{" "}
         <span style={{ marginLeft: 2, opacity: 0.6, fontSize: 9 }}>▾</span>
       </button>
       {open && (
@@ -48,7 +49,7 @@ export function AccountPill({ akey, accountMap, onChange }) {
             minWidth: 170,
             maxHeight: 280,
             overflowY: "auto",
-            boxShadow: "0 4px 16px rgba(0,0,0,.5)",
+            boxShadow: "0 4px 16px rgba(20,36,24,.12)",
           }}
         >
           {options.map((o) => (
@@ -70,7 +71,15 @@ export function AccountPill({ akey, accountMap, onChange }) {
                 background: o.key === akey ? "var(--color-accent-dim)" : "transparent",
               }}
             >
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: o.color, flexShrink: 0 }} />
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: o.swatch || o.color,
+                  flexShrink: 0,
+                }}
+              />
               {o.label}
             </div>
           ))}
@@ -80,10 +89,11 @@ export function AccountPill({ akey, accountMap, onChange }) {
   );
 }
 
-export function AePill({ ae, aeBg, aeColor }) {
+export function AePill({ ae, aeColor }) {
   if (!ae) return null;
+  const soft = softPillFromAccent(aeColor || "#6a7a96");
   return (
-    <span style={{ ...pillStyle(aeBg || "#1a1e28", aeColor || "#6a7a96"), fontStyle: "italic" }} title="AE">
+    <span style={{ ...pillStyle(soft.bg, soft.color), fontStyle: "italic" }} title="AE">
       {ae}
     </span>
   );
@@ -228,7 +238,7 @@ export function AddLabelInput({ onAdd, existing, all }) {
             border: "1px solid var(--color-border)",
             borderRadius: "var(--radius)",
             minWidth: 130,
-            boxShadow: "0 4px 16px rgba(0,0,0,.4)",
+            boxShadow: "0 4px 16px rgba(20,36,24,.12)",
           }}
         >
           {sug.slice(0, 6).map((s) => (

@@ -57,6 +57,7 @@ export default function KanbanView({
   accounts = [],
   accountMap,
   aeColors = {},
+  pocs = [],
   filters,
   onTasksChange,
   onStagesChange,
@@ -71,6 +72,12 @@ export default function KanbanView({
   const [busy, setBusy] = useState(false);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [localSwim, setLocalSwim] = useState(loadSwimMode);
+
+  const pocMap = useMemo(() => {
+    const m = {};
+    for (const p of pocs) m[p.id] = p;
+    return m;
+  }, [pocs]);
 
   const swimlaneMode = swimlaneModeProp ?? localSwim;
   const setSwimlaneMode = (mode) => {
@@ -94,7 +101,13 @@ export default function KanbanView({
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
       if (hideDemoWorkshops && t.category === "demo_workshop") return false;
-      if (filters.pocId != null && Number(t.pocId) !== Number(filters.pocId)) return false;
+      if (filters.pocId != null) {
+        if (Number(filters.pocId) === -1) {
+          if (t.pocId != null) return false;
+        } else if (Number(t.pocId) !== Number(filters.pocId)) {
+          return false;
+        }
+      }
       if (filters.account && t.account !== filters.account) return false;
       if (filters.ae) {
         const acct = accountMap[t.account];
@@ -436,12 +449,16 @@ export default function KanbanView({
                               {...dragProvided.draggableProps}
                               {...dragProvided.dragHandleProps}
                             >
-                              <TaskCard
-                                task={task}
-                                accountMap={accountMap}
-                                isDragging={dragSnapshot.isDragging}
-                                onOpen={onOpenTask}
-                              />
+                                        <TaskCard
+                                          task={task}
+                                          accountMap={accountMap}
+                                          pocMap={pocMap}
+                                          isDragging={dragSnapshot.isDragging}
+                                          onOpen={onOpenTask}
+                                          hidePocLabel={
+                                            filters.pocId != null && Number(filters.pocId) !== -1
+                                          }
+                                        />
                             </div>
                           )}
                         </Draggable>
@@ -489,9 +506,11 @@ export default function KanbanView({
                       <TaskCard
                         task={task}
                         accountMap={accountMap}
+                        pocMap={pocMap}
                         isDragging={dragSnapshot.isDragging}
                         onOpen={onOpenTask}
                         compactMeta={swimlaneMode === "account"}
+                        hidePocLabel={filters.pocId != null && Number(filters.pocId) !== -1}
                       />
                     </div>
                   )}

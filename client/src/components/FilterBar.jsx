@@ -1,7 +1,19 @@
-export default function FilterBar({ accounts, aes, aeColors, allLabels, filters, onChange }) {
-  const { ae, account, label } = filters;
+export default function FilterBar({
+  accounts,
+  aes,
+  aeColors,
+  allLabels,
+  pocs = [],
+  filters,
+  onChange,
+}) {
+  const { ae, account, label, pocId } = filters;
   const accountOptions = accounts.filter((a) => !ae || a.ae === ae);
-  const hasActive = ae || account || label;
+  const hasActive = ae || account || label || pocId != null;
+
+  const pocOptions = [...pocs].sort((a, b) =>
+    (a.title || a.folderName || "").localeCompare(b.title || b.folderName || "")
+  );
 
   function set(patch) {
     onChange({ ...filters, ...patch });
@@ -59,6 +71,25 @@ export default function FilterBar({ accounts, aes, aeColors, allLabels, filters,
         </div>
 
         <div className="filter-group">
+          <span className="filter-label">POC</span>
+          <select
+            className="filter-select"
+            value={pocId ?? ""}
+            onChange={(e) =>
+              set({ pocId: e.target.value ? Number(e.target.value) : null })
+            }
+          >
+            <option value="">All POCs</option>
+            <option value="-1">No POC</option>
+            {pocOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title || p.folderName}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group">
           <span className="filter-label">Label</span>
           <select
             className="filter-select"
@@ -78,7 +109,7 @@ export default function FilterBar({ accounts, aes, aeColors, allLabels, filters,
           <button
             type="button"
             className="chip"
-            onClick={() => set({ ae: null, account: null, label: null })}
+            onClick={() => set({ ae: null, account: null, label: null, pocId: null })}
             style={{ marginLeft: "auto" }}
           >
             Clear

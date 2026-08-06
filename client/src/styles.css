@@ -2,18 +2,21 @@
 
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  --color-bg: #0f1117;
-  --color-bg-secondary: #171c26;
-  --color-bg-card: #1a2030;
-  --color-border: #2a3347;
-  --color-border-mid: #3a4a60;
-  --color-text: #e8edf5;
-  --color-text-mid: #8a9ab5;
-  --color-text-dim: #4a5a72;
-  --color-accent: #00bfb3;
-  --color-accent-dim: rgba(0, 191, 179, 0.12);
-  --color-red: #e05252;
+  --color-bg: #c9dbc9;
+  --color-bg-secondary: #d9e8db;
+  --color-bg-card: #ffffff;
+  --color-border: #94b398;
+  --color-border-mid: #6f8f74;
+  --color-text: #0f1b12;
+  --color-text-mid: #2e4633;
+  --color-text-dim: #4d6e52;
+  --color-accent: #175b2f;
+  --color-accent-dim: rgba(23, 91, 47, 0.16);
+  --color-red: #b33333;
   --radius: 8px;
+  --shadow-soft: 0 4px 16px rgba(15, 27, 18, 0.1);
+  --shadow-med: 0 8px 28px rgba(15, 27, 18, 0.14);
+  --overlay: rgba(15, 27, 18, 0.32);
 }
 
 html, body, #root {
@@ -66,7 +69,7 @@ button:hover {
 
 button.primary {
   background: var(--color-accent);
-  color: #0a1018;
+  color: #ffffff;
   border-color: var(--color-accent);
   font-weight: 600;
 }
@@ -106,6 +109,7 @@ a {
   background: var(--color-bg-secondary);
   flex-shrink: 0;
   flex-wrap: wrap;
+  box-shadow: 0 1px 0 rgba(20, 36, 24, 0.04);
 }
 
 .app-brand {
@@ -358,7 +362,7 @@ a {
 }
 
 .swim-cell.dragging-over {
-  background: rgba(0, 191, 179, 0.06);
+  background: var(--color-accent-dim);
   border-color: var(--color-accent);
 }
 
@@ -397,7 +401,7 @@ a {
 }
 
 .kanban-col.col-dragging {
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-med);
   border-color: var(--color-accent);
   z-index: 5;
 }
@@ -524,7 +528,7 @@ a {
 }
 
 .kanban-col-body.dragging-over {
-  background: rgba(0, 191, 179, 0.04);
+  background: var(--color-accent-dim);
 }
 
 .task-card {
@@ -535,6 +539,7 @@ a {
   margin-bottom: 7px;
   cursor: grab;
   transition: border-color 0.12s, box-shadow 0.12s;
+  box-shadow: 0 1px 2px rgba(20, 36, 24, 0.05);
 }
 
 .task-card:hover {
@@ -542,13 +547,13 @@ a {
 }
 
 .task-card.dragging {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-med);
   border-color: var(--color-accent);
 }
 
 .task-card.overdue {
-  border-color: #3a1515;
-  background: rgba(232, 112, 112, 0.04);
+  border-color: #e8b4b4;
+  background: rgba(214, 69, 69, 0.06);
 }
 
 .task-card-title {
@@ -583,7 +588,7 @@ a {
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--overlay);
   z-index: 40;
 }
 
@@ -598,7 +603,7 @@ a {
   z-index: 50;
   display: flex;
   flex-direction: column;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-med);
 }
 
 .drawer-header {
@@ -711,7 +716,7 @@ a {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -727,7 +732,7 @@ a {
   max-height: 90vh;
   overflow: auto;
   padding: 18px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-med);
 }
 
 .modal h2 {
@@ -747,7 +752,7 @@ a {
   min-width: 220px;
   max-height: 320px;
   overflow-y: auto;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-soft);
 }
 
 .menu-item {
@@ -790,14 +795,14 @@ a {
 }
 
 .timeline-wrap .vis-item.task-item {
-  background: #1a4a48;
-  color: #9eefe8;
+  background: #b7d9bc;
+  color: #124828;
   border-radius: 3px;
 }
 
 .timeline-wrap .vis-item.poc-item {
-  background: #2a2218;
-  color: #dfb87a;
+  background: #c5d9a8;
+  color: #3a5620;
   border-radius: 3px;
 }
 

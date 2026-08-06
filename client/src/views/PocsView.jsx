@@ -226,6 +226,7 @@ export default function PocsView({
               accounts={accounts}
               accountMap={accountMap}
               aeColors={aeColors}
+              pocs={pocs}
               filters={boardFilters}
               showArchive={showArchive}
               onTasksChange={onTasksChange}
