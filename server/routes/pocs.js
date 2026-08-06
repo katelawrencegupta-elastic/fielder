@@ -60,7 +60,7 @@ router.post("/sync", async (req, res) => {
     res.json({ ok: true, synced: results.length, results });
   } catch (err) {
     console.error("POC sync failed:", err.message);
-    res.status(502).json({ ok: false, error: err.message });
+    res.status(502).json({ ok: false, error: err.message || String(err) });
   }
 });
 

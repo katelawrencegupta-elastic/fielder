@@ -11,13 +11,25 @@ function authHeaders() {
 }
 
 async function ghFetch(url) {
-  const res = await fetch(url, { headers: authHeaders() });
+  let res;
+  try {
+    res = await fetch(url, { headers: authHeaders() });
+  } catch (err) {
+    const cause = err.cause?.message || err.cause?.code || err.message;
+    throw new Error(
+      `Network error reaching GitHub (${cause}). Check connectivity` +
+        (process.env.HTTPS_PROXY || process.env.HTTP_PROXY
+          ? " / proxy settings"
+          : "") +
+        "."
+    );
+  }
   if (res.status === 404) return null;
   if (!res.ok) {
     const remaining = res.headers.get("x-ratelimit-remaining");
     const body = await res.text().catch(() => "");
     throw new Error(
-      `GitHub API ${res.status} for ${url}${remaining === "0" ? " (rate limited — set GITHUB_TOKEN)" : ""}: ${body.slice(0, 300)}`
+      `GitHub API ${res.status} for ${url}${remaining === "0" ? " (rate limited — set GITHUB_TOKEN in .env)" : ""}: ${body.slice(0, 300)}`
     );
   }
   return res.json();
@@ -26,7 +38,9 @@ async function ghFetch(url) {
 async function listPocFolders() {
   const contents = await ghFetch(`${API_BASE}/contents`);
   if (!contents) return [];
-  return contents.filter((item) => item.type === "dir").map((item) => item.name);
+  return contents
+    .filter((item) => item.type === "dir" && !item.name.startsWith("."))
+    .map((item) => item.name);
 }
 
 async function fetchManifest(folderName) {

@@ -100,12 +100,23 @@ export default function TaskDrawer({
     onUpdated(updated);
   }
 
+  async function archive() {
+    await persistField("stage", "archive");
+    onClose();
+  }
+
+  async function unarchive() {
+    await persistField("stage", "backlog");
+  }
+
   async function remove() {
     if (!window.confirm(`Delete task “${task.title}”?`)) return;
     await api.deleteTask(task.id);
     onDeleted(task.id);
     onClose();
   }
+
+  const isArchived = draft.stage === "archive";
 
   return (
     <>
@@ -282,6 +293,15 @@ export default function TaskDrawer({
         </div>
 
         <div className="drawer-footer">
+          {isArchived ? (
+            <button type="button" onClick={unarchive} disabled={saving}>
+              Unarchive
+            </button>
+          ) : (
+            <button type="button" onClick={archive} disabled={saving}>
+              Archive
+            </button>
+          )}
           <button type="button" className="danger" onClick={remove}>
             Delete
           </button>

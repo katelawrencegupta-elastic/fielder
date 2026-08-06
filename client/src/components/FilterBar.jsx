@@ -11,9 +11,13 @@ export default function FilterBar({
   const accountOptions = accounts.filter((a) => !ae || a.ae === ae);
   const hasActive = ae || account || label || pocId != null;
 
-  const pocOptions = [...pocs].sort((a, b) =>
-    (a.title || a.folderName || "").localeCompare(b.title || b.folderName || "")
-  );
+  const pocOptions = [...pocs]
+    .sort((a, b) => {
+      const aArch = a.status === "archived" ? 1 : 0;
+      const bArch = b.status === "archived" ? 1 : 0;
+      if (aArch !== bArch) return aArch - bArch;
+      return (a.title || a.folderName || "").localeCompare(b.title || b.folderName || "");
+    });
 
   function set(patch) {
     onChange({ ...filters, ...patch });
@@ -83,7 +87,7 @@ export default function FilterBar({
             <option value="-1">No POC</option>
             {pocOptions.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.title || p.folderName}
+                {p.status === "archived" ? `[archived] ${p.title || p.folderName}` : p.title || p.folderName}
               </option>
             ))}
           </select>

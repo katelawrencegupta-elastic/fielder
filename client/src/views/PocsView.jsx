@@ -22,7 +22,8 @@ export default function PocsView({
   const [commits, setCommits] = useState([]);
   const [showCommits, setShowCommits] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [showArchive, setShowArchive] = useState(false);
+  const [showTaskArchive, setShowTaskArchive] = useState(false);
+  const [showArchivedPocs, setShowArchivedPocs] = useState(false);
 
   const taskCountByPoc = useMemo(() => {
     const counts = {};
@@ -33,18 +34,29 @@ export default function PocsView({
     return counts;
   }, [tasks]);
 
-  // Prefer a POC that already has tasks; fall back to first POC.
+  const visiblePocs = useMemo(() => {
+    if (showArchivedPocs) return pocs;
+    return pocs.filter((p) => p.status !== "archived");
+  }, [pocs, showArchivedPocs]);
+
+  const archivedPocCount = useMemo(
+    () => pocs.filter((p) => p.status === "archived").length,
+    [pocs]
+  );
+
+  // Prefer a POC that already has tasks; fall back to first visible POC.
   useEffect(() => {
-    if (!pocs.length) {
+    if (!visiblePocs.length) {
       setSelectedId(null);
       return;
     }
-    if (selectedId && pocs.some((p) => p.id === selectedId)) return;
-    const withTasks = pocs.find((p) => (taskCountByPoc[p.id] || 0) > 0);
-    setSelectedId((withTasks || pocs[0]).id);
-  }, [pocs, selectedId, taskCountByPoc]);
+    if (selectedId && visiblePocs.some((p) => p.id === selectedId)) return;
+    const withTasks = visiblePocs.find((p) => (taskCountByPoc[p.id] || 0) > 0);
+    setSelectedId((withTasks || visiblePocs[0]).id);
+  }, [visiblePocs, selectedId, taskCountByPoc]);
 
   const selected = pocs.find((p) => p.id === selectedId) || null;
+  const selectedIsArchived = selected?.status === "archived";
 
   useEffect(() => {
     if (!selected) {
@@ -94,22 +106,57 @@ export default function PocsView({
     flash?.("POC updated");
   }
 
+  async function setPocArchived(archived) {
+    if (!selected) return;
+    const updated = await api.updatePoc(selected.id, {
+      status: archived ? "archived" : "planning",
+    });
+    onPocsChange(pocs.map((p) => (p.id === updated.id ? updated : p)));
+    flash?.(archived ? "POC archived" : "POC restored");
+    if (archived && !showArchivedPocs) {
+      const next = pocs.find(
+        (p) => p.id !== selected.id && p.status !== "archived"
+      );
+      setSelectedId(next?.id ?? null);
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div className="view-scroll" style={{ flex: "0 0 auto", paddingBottom: 0 }}>
         <div className="toolbar-row">
           <div style={{ fontSize: 13, color: "var(--color-text-mid)" }}>
-            {pocs.length} POC{pocs.length === 1 ? "" : "s"}
+            {visiblePocs.length} POC{visiblePocs.length === 1 ? "" : "s"}
+            {archivedPocCount > 0 && !showArchivedPocs && (
+              <span style={{ color: "var(--color-text-dim)" }}>
+                {" "}
+                · {archivedPocCount} archived
+              </span>
+            )}
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {archivedPocCount > 0 && (
+              <button type="button" onClick={() => setShowArchivedPocs((v) => !v)}>
+                {showArchivedPocs ? "Hide archived POCs" : "Show archived POCs"}
+              </button>
+            )}
             {selected && (
               <>
-                <button type="button" onClick={() => setShowArchive((v) => !v)}>
-                  {showArchive ? "Hide archive" : "Show archive"}
+                <button type="button" onClick={() => setShowTaskArchive((v) => !v)}>
+                  {showTaskArchive ? "Hide task archive" : "Show task archive"}
                 </button>
                 <button type="button" onClick={() => setShowCommits((v) => !v)}>
                   {showCommits ? "Hide commits" : `Commits (${commits.length})`}
                 </button>
+                {selectedIsArchived ? (
+                  <button type="button" onClick={() => setPocArchived(false)}>
+                    Unarchive POC
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setPocArchived(true)}>
+                    Archive POC
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -139,18 +186,24 @@ export default function PocsView({
           </div>
         </div>
 
-        {pocs.length === 0 ? (
-          <div className="empty-state">No POCs yet. Hit Sync POCs to pull from GitHub.</div>
+        {visiblePocs.length === 0 ? (
+          <div className="empty-state">
+            {pocs.length === 0
+              ? "No POCs yet. Hit Sync POCs to pull from GitHub."
+              : "All POCs are archived. Show archived POCs to view them."}
+          </div>
         ) : (
           <div className="poc-picker">
-            {pocs.map((poc) => {
+            {visiblePocs.map((poc) => {
               const active = selected?.id === poc.id;
               const count = taskCountByPoc[poc.id] || 0;
               return (
                 <button
                   key={poc.id}
                   type="button"
-                  className={`poc-picker-card${active ? " active" : ""}`}
+                  className={`poc-picker-card${active ? " active" : ""}${
+                    poc.status === "archived" ? " is-archived" : ""
+                  }`}
                   onClick={() => setSelectedId(poc.id)}
                 >
                   <div className="poc-picker-title">{poc.title || poc.folderName}</div>
@@ -228,7 +281,7 @@ export default function PocsView({
               aeColors={aeColors}
               pocs={pocs}
               filters={boardFilters}
-              showArchive={showArchive}
+              showArchive={showTaskArchive}
               onTasksChange={onTasksChange}
               onStagesChange={onStagesChange}
               onOpenTask={onOpenTask}

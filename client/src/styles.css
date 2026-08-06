@@ -540,6 +540,8 @@ a {
   cursor: grab;
   transition: border-color 0.12s, box-shadow 0.12s;
   box-shadow: 0 1px 2px rgba(20, 36, 24, 0.05);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .task-card:hover {
@@ -562,6 +564,19 @@ a {
   line-height: 1.35;
   color: var(--color-text);
   margin-bottom: 8px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.task-card-link {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 600;
+}
+
+.task-card-link:hover {
+  opacity: 0.85;
 }
 
 .task-card-meta {
@@ -852,9 +867,8 @@ a {
   border-color: var(--color-border-mid);
 }
 
-.poc-picker-card.active {
-  border-color: var(--color-accent);
-  background: var(--color-accent-dim);
+.poc-picker-card.is-archived {
+  opacity: 0.65;
 }
 
 .poc-picker-title {
