@@ -329,16 +329,37 @@ a {
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
+  transition: flex-basis 0.15s ease, width 0.15s ease, min-width 0.15s ease,
+    opacity 0.15s ease, filter 0.15s ease, background 0.15s ease;
 }
 
 .kanban-col-head.collapsed {
-  flex-basis: 48px;
-  width: 48px;
-  min-width: 48px;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 148px;
+  opacity: 0.48;
+  filter: saturate(0.55);
+  background: color-mix(in srgb, var(--color-bg-secondary) 70%, var(--color-bg) 30%);
+}
+
+.kanban-col-head.collapsed:hover {
+  opacity: 0.72;
+  filter: saturate(0.75);
 }
 
 .kanban-col-head .kanban-col-header {
   border-bottom: none;
+}
+
+.kanban-col-head.collapsed .kanban-col-header {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 2px;
+  min-height: 0;
 }
 
 .swim-cell {
@@ -350,15 +371,25 @@ a {
   border-radius: var(--radius);
   padding: 8px;
   min-height: 88px;
-  transition: background 0.12s;
+  transition: background 0.12s, flex-basis 0.15s ease, width 0.15s ease, min-width 0.15s ease,
+    opacity 0.15s ease, filter 0.15s ease, padding 0.15s ease;
 }
 
 .swim-cell.collapsed {
-  flex-basis: 48px;
-  width: 48px;
-  min-width: 48px;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
   padding: 4px;
   min-height: 48px;
+  opacity: 0.42;
+  filter: saturate(0.5);
+  overflow: hidden;
+}
+
+.swim-cell.collapsed:hover,
+.swim-cell.collapsed.dragging-over {
+  opacity: 0.7;
+  filter: saturate(0.75);
 }
 
 .swim-cell.dragging-over {
@@ -391,19 +422,30 @@ a {
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 180px);
-  transition: flex-basis 0.15s ease, width 0.15s ease, max-width 0.15s ease;
+  transition: flex-basis 0.15s ease, width 0.15s ease, max-width 0.15s ease,
+    opacity 0.15s ease, filter 0.15s ease, background 0.15s ease;
 }
 
 .kanban-col.collapsed {
-  flex: 0 0 48px;
-  width: 48px;
-  max-width: 48px;
+  flex: 0 0 44px;
+  width: 44px;
+  max-width: 44px;
+  opacity: 0.48;
+  filter: saturate(0.55);
+  background: color-mix(in srgb, var(--color-bg-secondary) 70%, var(--color-bg) 30%);
+}
+
+.kanban-col.collapsed:hover {
+  opacity: 0.72;
+  filter: saturate(0.75);
 }
 
 .kanban-col.col-dragging {
   box-shadow: var(--shadow-med);
   border-color: var(--color-accent);
   z-index: 5;
+  opacity: 1;
+  filter: none;
 }
 
 .kanban-embedded .kanban-col {
@@ -421,14 +463,14 @@ a {
 }
 
 .kanban-col.collapsed .kanban-col-header {
+  flex: 1;
   flex-direction: column;
   align-items: center;
-  border-bottom: 1px solid var(--color-border);
-  padding: 8px 4px;
-  gap: 6px;
-  flex: 1;
+  justify-content: flex-start;
+  border-bottom: none;
+  padding: 8px 2px;
+  gap: 8px;
   min-height: 0;
-  height: auto;
 }
 
 .kanban-col-toggle {
@@ -445,6 +487,7 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .kanban-col-toggle:hover {
@@ -468,14 +511,18 @@ a {
   cursor: grabbing;
 }
 
-.kanban-col.collapsed .kanban-col-handle {
-  flex-direction: column;
+.kanban-col.collapsed .kanban-col-handle,
+.kanban-col-head.collapsed .kanban-col-handle {
+  flex: 1;
+  flex-direction: row;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  flex: 1;
+  align-items: center;
   justify-content: flex-start;
-  padding: 8px 0;
-  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 6px 0;
+  gap: 10px;
 }
 
 .kanban-col-grip {
@@ -486,7 +533,8 @@ a {
   flex-shrink: 0;
 }
 
-.kanban-col.collapsed .kanban-col-grip {
+.kanban-col.collapsed .kanban-col-grip,
+.kanban-col-head.collapsed .kanban-col-grip {
   display: none;
 }
 
@@ -499,6 +547,13 @@ a {
   white-space: nowrap;
 }
 
+.kanban-col.collapsed .kanban-col-title,
+.kanban-col-head.collapsed .kanban-col-title {
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  max-height: none;
+}
+
 .kanban-col-count {
   font-size: 11px;
   color: var(--color-text-dim);
@@ -507,10 +562,12 @@ a {
   flex-shrink: 0;
 }
 
-.kanban-col.collapsed .kanban-col-count {
+.kanban-col.collapsed .kanban-col-count,
+.kanban-col-head.collapsed .kanban-col-count {
   margin-left: 0;
   writing-mode: horizontal-tb;
   transform: rotate(180deg);
+  font-weight: 650;
 }
 
 .kanban-col-body {
@@ -521,10 +578,7 @@ a {
 }
 
 .kanban-col-body.is-collapsed {
-  padding: 2px;
-  min-height: 28px;
-  flex: 0 0 28px;
-  overflow: hidden;
+  display: none;
 }
 
 .kanban-col-body.dragging-over {

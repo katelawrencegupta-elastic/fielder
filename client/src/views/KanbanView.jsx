@@ -369,7 +369,6 @@ export default function KanbanView({
           </button>
           <div
             className="kanban-col-handle"
-            {...(dragEnabled ? {} : {})}
             title={dragEnabled ? "Drag to reorder column" : undefined}
           >
             {dragEnabled && (
@@ -388,7 +387,6 @@ export default function KanbanView({
           <div
             key={stage.key}
             className={`kanban-col-head${isCollapsed ? " collapsed" : ""}`}
-            style={{ width: isCollapsed ? 48 : 280 }}
           >
             {inner}
           </div>
@@ -492,7 +490,6 @@ export default function KanbanView({
             className={`swim-cell${isCollapsed ? " collapsed" : ""}${
               snapshot.isDraggingOver ? " dragging-over" : ""
             }`}
-            style={{ width: isCollapsed ? 48 : 280, minWidth: isCollapsed ? 48 : 280 }}
           >
             {!isCollapsed &&
               list.map((task, index) => (
@@ -599,10 +596,6 @@ export default function KanbanView({
                             className={`kanban-col-head${isCollapsed ? " collapsed" : ""}${
                               colSnapshot.isDragging ? " col-dragging" : ""
                             }`}
-                            style={{
-                              width: isCollapsed ? 48 : 280,
-                              minWidth: isCollapsed ? 48 : 280,
-                            }}
                           >
                             <div className="kanban-col-header">
                               <button

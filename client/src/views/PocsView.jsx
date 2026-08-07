@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
-import { POC_STATUSES } from "../helpers.js";
+import { isTcStage, POC_STATUSES } from "../helpers.js";
 import { AccountPill, StatusPill } from "../components/Pills.jsx";
 import KanbanView from "./KanbanView.jsx";
 
@@ -24,6 +24,13 @@ export default function PocsView({
   const [editing, setEditing] = useState(null);
   const [showTaskArchive, setShowTaskArchive] = useState(false);
   const [showArchivedPocs, setShowArchivedPocs] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: "",
+    account: "",
+    stage: "backlog",
+    dueDate: "",
+  });
 
   const taskCountByPoc = useMemo(() => {
     const counts = {};
@@ -120,6 +127,48 @@ export default function PocsView({
       setSelectedId(next?.id ?? null);
     }
   }
+
+  function openNewTask() {
+    if (!selected) return;
+    const defaultStage =
+      stages.find((s) => s.key === "backlog")?.key ||
+      stages.find((s) => s.key !== "archive")?.key ||
+      "backlog";
+    setNewTask({
+      title: "",
+      account: selected.account || accounts[0]?.key || "other",
+      stage: defaultStage,
+      dueDate: "",
+    });
+    setNewOpen(true);
+  }
+
+  async function createTask(e) {
+    e.preventDefault();
+    if (!selected || !newTask.title.trim()) return;
+    const created = await api.createTask({
+      title: newTask.title.trim(),
+      account: newTask.account || selected.account || "other",
+      stage: newTask.stage || "backlog",
+      dueDate: newTask.dueDate || null,
+      category: "general",
+      pocId: selected.id,
+    });
+    onTasksChange([created, ...tasks]);
+    setNewOpen(false);
+    setNewTask({
+      title: "",
+      account: newTask.account,
+      stage: newTask.stage,
+      dueDate: "",
+    });
+    flash?.("Task created");
+  }
+
+  const stageOptions = useMemo(
+    () => stages.filter((s) => s.key !== "archive"),
+    [stages]
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
@@ -231,6 +280,9 @@ export default function PocsView({
                   ` · ${selected.startDate || "—"} → ${selected.targetDemoDate || "—"}`}
               </div>
             </div>
+            <button type="button" className="primary" onClick={openNewTask}>
+              New task
+            </button>
           </div>
         )}
 
@@ -267,28 +319,86 @@ export default function PocsView({
 
       {selected && (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-          {boardTaskCount === 0 ? (
-            <div className="empty-state">
-              No tasks linked to this POC yet. Link a task from the drawer’s POC field, or create one
-              with this POC selected.
+          <KanbanView
+            stages={stages}
+            tasks={tasks}
+            accounts={accounts}
+            accountMap={accountMap}
+            aeColors={aeColors}
+            pocs={pocs}
+            filters={boardFilters}
+            showArchive={showTaskArchive}
+            onTasksChange={onTasksChange}
+            onStagesChange={onStagesChange}
+            onOpenTask={onOpenTask}
+            embedded
+            showTcColumns
+          />
+        </div>
+      )}
+
+      {newOpen && selected && (
+        <div className="modal-backdrop" onClick={() => setNewOpen(false)}>
+          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={createTask}>
+            <h2>New task</h2>
+            <p style={{ fontSize: 12, color: "var(--color-text-mid)", marginBottom: 10 }}>
+              Linked to <strong>{selected.title || selected.folderName}</strong>
+            </p>
+            <div className="field" style={{ marginBottom: 10 }}>
+              <label>Title</label>
+              <input
+                autoFocus
+                required
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+              />
             </div>
-          ) : (
-            <KanbanView
-              stages={stages}
-              tasks={tasks}
-              accounts={accounts}
-              accountMap={accountMap}
-              aeColors={aeColors}
-              pocs={pocs}
-              filters={boardFilters}
-              showArchive={showTaskArchive}
-              onTasksChange={onTasksChange}
-              onStagesChange={onStagesChange}
-              onOpenTask={onOpenTask}
-              embedded
-              showTcColumns
-            />
-          )}
+            <div className="field-row" style={{ marginBottom: 10 }}>
+              <div className="field">
+                <label>Account</label>
+                <select
+                  value={newTask.account}
+                  onChange={(e) => setNewTask({ ...newTask, account: e.target.value })}
+                >
+                  {accounts.map((a) => (
+                    <option key={a.key} value={a.key}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Stage</label>
+                <select
+                  value={newTask.stage}
+                  onChange={(e) => setNewTask({ ...newTask, stage: e.target.value })}
+                >
+                  {stageOptions.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                      {isTcStage(s.key) ? " (TC)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="field" style={{ marginBottom: 14 }}>
+              <label>Due date</label>
+              <input
+                type="date"
+                value={newTask.dueDate}
+                onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="submit" className="primary">
+                Create
+              </button>
+              <button type="button" onClick={() => setNewOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
