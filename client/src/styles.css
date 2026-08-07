@@ -337,7 +337,8 @@ a {
   flex: 0 0 44px;
   width: 44px;
   min-width: 44px;
-  min-height: 148px;
+  height: auto;
+  align-self: flex-start;
   opacity: 0.48;
   filter: saturate(0.55);
   background: color-mix(in srgb, var(--color-bg-secondary) 70%, var(--color-bg) 30%);
@@ -353,12 +354,13 @@ a {
 }
 
 .kanban-col-head.collapsed .kanban-col-header {
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
-  padding: 8px 2px;
+  padding: 8px 2px 10px;
+  height: auto;
   min-height: 0;
 }
 
@@ -430,6 +432,9 @@ a {
   flex: 0 0 44px;
   width: 44px;
   max-width: 44px;
+  max-height: none;
+  height: auto;
+  align-self: flex-start;
   opacity: 0.48;
   filter: saturate(0.55);
   background: color-mix(in srgb, var(--color-bg-secondary) 70%, var(--color-bg) 30%);
@@ -452,6 +457,10 @@ a {
   max-height: calc(100vh - 280px);
 }
 
+.kanban-embedded .kanban-col.collapsed {
+  max-height: none;
+}
+
 .kanban-col-header {
   padding: 8px 8px 8px 6px;
   border-bottom: 1px solid var(--color-border);
@@ -463,13 +472,14 @@ a {
 }
 
 .kanban-col.collapsed .kanban-col-header {
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   border-bottom: none;
-  padding: 8px 2px;
+  padding: 8px 2px 10px;
   gap: 8px;
+  height: auto;
   min-height: 0;
 }
 
@@ -513,16 +523,18 @@ a {
 
 .kanban-col.collapsed .kanban-col-handle,
 .kanban-col-head.collapsed .kanban-col-handle {
-  flex: 1;
-  flex-direction: row;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
+  flex: 0 0 auto;
+  flex-direction: column;
+  writing-mode: horizontal-tb;
+  transform: none;
   align-items: center;
   justify-content: flex-start;
+  width: 100%;
   min-width: 0;
-  min-height: 0;
-  padding: 6px 0;
-  gap: 10px;
+  min-height: unset;
+  height: auto;
+  padding: 2px 0;
+  gap: 8px;
 }
 
 .kanban-col-grip {
@@ -549,9 +561,15 @@ a {
 
 .kanban-col.collapsed .kanban-col-title,
 .kanban-col-head.collapsed .kanban-col-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  overflow: visible;
+  text-overflow: unset;
+  white-space: nowrap;
   letter-spacing: 0.06em;
-  line-height: 1.15;
+  line-height: 1.2;
   max-height: none;
+  flex: 0 0 auto;
 }
 
 .kanban-col-count {
@@ -566,7 +584,7 @@ a {
 .kanban-col-head.collapsed .kanban-col-count {
   margin-left: 0;
   writing-mode: horizontal-tb;
-  transform: rotate(180deg);
+  transform: none;
   font-weight: 650;
 }
 
