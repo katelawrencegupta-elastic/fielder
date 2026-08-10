@@ -123,22 +123,33 @@ export default function TaskDrawer({
       <div className="drawer-backdrop" onClick={onClose} />
       <aside className="drawer" onClick={(e) => e.stopPropagation()}>
         <div className="drawer-header">
-          <div style={{ flex: 1 }}>
-            <input
-              value={draft.title || ""}
-              onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-              onBlur={() => {
-                if (draft.title && draft.title !== task.title) persistField("title", draft.title);
-              }}
-              style={{
-                width: "100%",
-                fontSize: 16,
-                fontWeight: 650,
-                padding: "6px 8px",
-                background: "transparent",
-                border: "1px solid transparent",
-              }}
-            />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>Title</label>
+              <input
+                className="drawer-title-input"
+                value={draft.title || ""}
+                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                onBlur={() => {
+                  const next = (draft.title || "").trim();
+                  if (!next) {
+                    setDraft((d) => ({ ...d, title: task.title }));
+                    return;
+                  }
+                  if (next !== task.title) persistField("title", next);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setDraft((d) => ({ ...d, title: task.title }));
+                    e.currentTarget.blur();
+                  }
+                }}
+              />
+            </div>
             <div style={{ marginTop: 8 }}>
               <AccountPill
                 akey={draft.account}

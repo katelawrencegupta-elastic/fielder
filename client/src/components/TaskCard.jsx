@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { dueDateStatus, pillStyle, softPillFromAccent } from "../helpers.js";
 import { AccountPill, DueDatePill, LabelPill } from "./Pills.jsx";
 
@@ -33,7 +34,7 @@ function TitleWithLinks({ title }) {
   if (parts.length === 0) parts.push({ type: "text", value: title });
 
   return (
-    <div className="task-card-title">
+    <>
       {parts.map((p, i) =>
         p.type === "url" ? (
           <a
@@ -52,7 +53,7 @@ function TitleWithLinks({ title }) {
           <span key={i}>{p.value}</span>
         )
       )}
-    </div>
+    </>
   );
 }
 
@@ -73,9 +74,27 @@ export default function TaskCard({
   pocMap = {},
   isDragging,
   onOpen,
+  onRename,
   compactMeta = false,
   hidePocLabel = false,
 }) {
+  const [editing, setEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(task.title || "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef(null);
+  const skipCommitRef = useRef(false);
+
+  useEffect(() => {
+    if (!editing) setTitleDraft(task.title || "");
+  }, [task.title, editing]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
   const overdue =
     dueDateStatus(task.dueDate) === "overdue" &&
     task.stage !== "done" &&
@@ -88,12 +107,82 @@ export default function TaskCard({
       ? pocMap[task.pocId] || { id: task.pocId, title: `POC #${task.pocId}` }
       : null;
 
+  function startRename(e) {
+    if (!onRename) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setTitleDraft(task.title || "");
+    setEditing(true);
+  }
+
+  async function commitRename() {
+    if (skipCommitRef.current) {
+      skipCommitRef.current = false;
+      return;
+    }
+    if (!onRename || saving) return;
+    const next = titleDraft.trim();
+    if (!next || next === (task.title || "").trim()) {
+      setEditing(false);
+      setTitleDraft(task.title || "");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onRename(task, next);
+      setEditing(false);
+    } catch {
+      setTitleDraft(task.title || "");
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function cancelRename() {
+    skipCommitRef.current = true;
+    setEditing(false);
+    setTitleDraft(task.title || "");
+  }
+
   return (
     <div
-      className={`task-card${isDragging ? " dragging" : ""}${overdue ? " overdue" : ""}`}
-      onClick={() => onOpen?.(task)}
+      className={`task-card${isDragging ? " dragging" : ""}${overdue ? " overdue" : ""}${
+        editing ? " is-editing" : ""
+      }${task.category === "demo_workshop" ? " is-demo" : ""}`}
+      onClick={() => {
+        if (!editing) onOpen?.(task);
+      }}
     >
-      <TitleWithLinks title={task.title || ""} />
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="task-card-title-input"
+          value={titleDraft}
+          disabled={saving}
+          onChange={(e) => setTitleDraft(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onBlur={() => commitRename()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancelRename();
+            }
+          }}
+        />
+      ) : (
+        <div
+          className="task-card-title"
+          title={onRename ? "Double-click to rename" : undefined}
+          onDoubleClick={startRename}
+        >
+          <TitleWithLinks title={task.title || ""} />
+        </div>
+      )}
       <div className="task-card-meta">
         {!compactMeta && task.account && (
           <AccountPill akey={task.account} accountMap={accountMap} />

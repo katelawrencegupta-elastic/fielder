@@ -3,7 +3,7 @@ const path = require("path");
 const { db, DB_PATH } = require("../db/client");
 
 const SNAPSHOT_DIR = path.join(__dirname, "..", "snapshots");
-const SNAPSHOT_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const SNAPSHOT_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const SNAPSHOT_KEEP = 144; // 24h worth at 10-min intervals
 
 function writeSnapshot() {

@@ -268,7 +268,6 @@ export default function App() {
             pocs={pocs}
             filters={filters}
             showArchive={showArchive}
-            hideDemoWorkshops
             onTasksChange={setTasks}
             onStagesChange={setStages}
             onOpenTask={setSelectedTask}

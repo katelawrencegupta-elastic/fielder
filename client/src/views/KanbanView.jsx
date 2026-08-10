@@ -2,7 +2,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import TaskCard from "../components/TaskCard.jsx";
-import { isTcStage } from "../helpers.js";
+import { isTcStage, replaceById } from "../helpers.js";
 
 const COLLAPSED_KEY = "fielder.collapsedStages";
 const SWIM_KEY = "fielder.swimlaneMode";
@@ -339,6 +339,11 @@ export default function KanbanView({
     );
   }
 
+  async function renameTask(task, title) {
+    const updated = await api.updateTask(task.id, { title });
+    onTasksChange((prev) => replaceById(prev, updated));
+  }
+
   function stageCount(stageKey) {
     if (swimlaneMode === "none") {
       return (byCell[cellId(stageKey, "_")] || []).length;
@@ -453,6 +458,7 @@ export default function KanbanView({
                                           pocMap={pocMap}
                                           isDragging={dragSnapshot.isDragging}
                                           onOpen={onOpenTask}
+                                          onRename={renameTask}
                                           hidePocLabel={
                                             filters.pocId != null && Number(filters.pocId) !== -1
                                           }
@@ -506,6 +512,7 @@ export default function KanbanView({
                         pocMap={pocMap}
                         isDragging={dragSnapshot.isDragging}
                         onOpen={onOpenTask}
+                        onRename={renameTask}
                         compactMeta={swimlaneMode === "account"}
                         hidePocLabel={filters.pocId != null && Number(filters.pocId) !== -1}
                       />

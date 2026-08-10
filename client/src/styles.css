@@ -630,6 +630,22 @@ a {
   background: rgba(214, 69, 69, 0.06);
 }
 
+.task-card.is-demo {
+  background: #e6eef7;
+  border-color: #b7c8db;
+  box-shadow: none;
+}
+
+.task-card.is-demo:hover {
+  border-color: #9aafc6;
+  background: #dde8f3;
+}
+
+.task-card.is-demo.overdue {
+  background: #ebe6ef;
+  border-color: #d4a8b4;
+}
+
 .task-card-title {
   font-size: 13px;
   font-weight: 560;
@@ -638,6 +654,28 @@ a {
   margin-bottom: 8px;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.task-card-title-input {
+  width: 100%;
+  font-size: 13px;
+  font-weight: 560;
+  line-height: 1.35;
+  margin-bottom: 8px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  cursor: text;
+}
+
+.task-card.is-editing {
+  cursor: default;
+}
+
+.drawer-title-input {
+  width: 100%;
+  font-size: 16px;
+  font-weight: 650;
+  padding: 7px 9px;
 }
 
 .task-card-link {
