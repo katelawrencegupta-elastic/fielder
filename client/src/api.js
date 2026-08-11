@@ -59,6 +59,15 @@ export const api = {
 
   getTimeline: () => req("GET", "/timeline"),
 
+  getTaskEvents: ({ pocId, fromMs, toMs } = {}) => {
+    const q = new URLSearchParams();
+    if (pocId != null && pocId !== "") q.set("pocId", String(pocId));
+    if (fromMs != null) q.set("fromMs", String(fromMs));
+    if (toMs != null) q.set("toMs", String(toMs));
+    const qs = q.toString();
+    return req("GET", `/task-events${qs ? `?${qs}` : ""}`);
+  },
+
   exportTasks: () => req("GET", "/export"),
   importTasks: (items) => req("POST", "/import", items),
 

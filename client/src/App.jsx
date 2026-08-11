@@ -5,6 +5,7 @@ import {
   buildAeColors,
   buildAllAes,
   replaceById,
+  sortAccounts,
 } from "./helpers.js";
 import FilterBar from "./components/FilterBar.jsx";
 import TaskDrawer from "./components/TaskDrawer.jsx";
@@ -13,12 +14,14 @@ import { isTcStage } from "./helpers.js";
 import PocsView from "./views/PocsView.jsx";
 import DemosView from "./views/DemosView.jsx";
 import TimelineView from "./views/TimelineView.jsx";
+import ReportView from "./views/ReportView.jsx";
 
 const TABS = [
   { key: "kanban", label: "Kanban" },
   { key: "demos", label: "Demos & Workshops" },
   { key: "pocs", label: "POCs" },
   { key: "timeline", label: "Timeline" },
+  { key: "report", label: "Report" },
 ];
 
 export default function App() {
@@ -54,6 +57,7 @@ export default function App() {
   const accountMap = useMemo(() => buildAccountMap(accounts), [accounts]);
   const aeColors = useMemo(() => buildAeColors(accounts), [accounts]);
   const aes = useMemo(() => buildAllAes(accounts), [accounts]);
+  const accountsSorted = useMemo(() => sortAccounts(accounts), [accounts]);
 
   const flash = useCallback((msg, ms = 2500) => {
     setStatus(msg);
@@ -247,7 +251,7 @@ export default function App() {
 
       {tab === "kanban" && (
         <FilterBar
-          accounts={accounts}
+          accounts={accountsSorted}
           aes={aes}
           aeColors={aeColors}
           allLabels={allLabels}
@@ -276,7 +280,7 @@ export default function App() {
         {tab === "demos" && (
           <DemosView
             tasks={tasks}
-            accounts={accounts}
+            accounts={accountsSorted}
             accountMap={accountMap}
             stages={stages}
             onTasksChange={setTasks}
@@ -287,7 +291,7 @@ export default function App() {
         {tab === "pocs" && (
           <PocsView
             pocs={pocs}
-            accounts={accounts}
+            accounts={accountsSorted}
             accountMap={accountMap}
             aeColors={aeColors}
             stages={stages}
@@ -300,6 +304,16 @@ export default function App() {
           />
         )}
         {tab === "timeline" && <TimelineView accountMap={accountMap} />}
+        {tab === "report" && (
+          <ReportView
+            tasks={tasks}
+            pocs={pocs}
+            accounts={accountsSorted}
+            accountMap={accountMap}
+            stages={stages}
+            flash={flash}
+          />
+        )}
       </div>
 
       {selectedTask && (
@@ -342,7 +356,7 @@ export default function App() {
                   value={newTask.account}
                   onChange={(e) => setNewTask({ ...newTask, account: e.target.value })}
                 >
-                  {accounts.map((a) => (
+                  {accountsSorted.map((a) => (
                     <option key={a.key} value={a.key}>
                       {a.label}
                     </option>

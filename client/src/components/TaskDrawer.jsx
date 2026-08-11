@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
+import { isTcStage, sortPocs } from "../helpers.js";
 import { AccountPill, AddLabelInput, LabelPill } from "./Pills.jsx";
-import { isTcStage } from "../helpers.js";
 
 export default function TaskDrawer({
   task,
@@ -30,6 +30,8 @@ export default function TaskDrawer({
       return true;
     });
   }, [stages, allowTcStages, task?.pocId, task?.stage, draft?.stage]);
+
+  const pocOptions = useMemo(() => sortPocs(pocs), [pocs]);
 
   useEffect(() => {
     setDraft(task ? { ...task } : null);
@@ -236,7 +238,7 @@ export default function TaskDrawer({
               }
             >
               <option value="">None</option>
-              {pocs.map((p) => (
+              {pocOptions.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.title || p.folderName}
                 </option>

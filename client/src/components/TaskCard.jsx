@@ -75,12 +75,15 @@ export default function TaskCard({
   isDragging,
   onOpen,
   onRename,
+  quickMoveStages = null,
+  onQuickMove = null,
   compactMeta = false,
   hidePocLabel = false,
 }) {
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title || "");
   const [saving, setSaving] = useState(false);
+  const [moving, setMoving] = useState(false);
   const inputRef = useRef(null);
   const skipCommitRef = useRef(false);
 
@@ -106,6 +109,11 @@ export default function TaskCard({
     task.pocId != null
       ? pocMap[task.pocId] || { id: task.pocId, title: `POC #${task.pocId}` }
       : null;
+
+  const canQuickMove = Array.isArray(quickMoveStages) && quickMoveStages.length > 0 && onQuickMove;
+  const moveOptions = canQuickMove
+    ? quickMoveStages.filter((s) => s.key !== task.stage)
+    : [];
 
   function startRename(e) {
     if (!onRename) return;
@@ -143,6 +151,16 @@ export default function TaskCard({
     skipCommitRef.current = true;
     setEditing(false);
     setTitleDraft(task.title || "");
+  }
+
+  async function moveTo(stageKey) {
+    if (!onQuickMove || moving || !stageKey || stageKey === task.stage) return;
+    setMoving(true);
+    try {
+      await onQuickMove(task, stageKey);
+    } finally {
+      setMoving(false);
+    }
   }
 
   return (
@@ -196,6 +214,32 @@ export default function TaskCard({
           <span style={{ fontSize: 10, color: "var(--color-text-dim)" }}>
             +{task.labels.length - (compactMeta ? 2 : 3)}
           </span>
+        )}
+        {canQuickMove && moveOptions.length > 0 && (
+          <select
+            className="task-card-move-select"
+            value=""
+            disabled={moving}
+            aria-label="Move to column"
+            title="Move to column"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const next = e.target.value;
+              e.target.value = "";
+              moveTo(next);
+            }}
+          >
+            <option value="" disabled>
+              {moving ? "…" : "Move"}
+            </option>
+            {moveOptions.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         )}
       </div>
       {pct != null && (

@@ -89,7 +89,30 @@ export function buildAeColors(list) {
 }
 
 export function buildAllAes(list) {
-  return [...new Set(list.map((a) => a.ae).filter(Boolean))].sort();
+  return [...new Set(list.map((a) => a.ae).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
+}
+
+/** Sort accounts alphabetically by display label. */
+export function sortAccounts(list) {
+  return [...(list || [])].sort((a, b) =>
+    (a.label || a.key || "").localeCompare(b.label || b.key || "", undefined, {
+      sensitivity: "base",
+    })
+  );
+}
+
+/** Sort POCs alphabetically by title (archived last when present). */
+export function sortPocs(list) {
+  return [...(list || [])].sort((a, b) => {
+    const aArch = a.status === "archived" ? 1 : 0;
+    const bArch = b.status === "archived" ? 1 : 0;
+    if (aArch !== bArch) return aArch - bArch;
+    return (a.title || a.folderName || "").localeCompare(b.title || b.folderName || "", undefined, {
+      sensitivity: "base",
+    });
+  });
 }
 
 export function pillColor(str) {

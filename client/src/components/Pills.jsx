@@ -20,8 +20,10 @@ export function AccountPill({ akey, accountMap, onChange }) {
     return <span style={pillStyle(a.bg, a.color)}>{label}</span>;
   }
 
-  const options = Object.values(accountMap).sort(
-    (x, y) => (x.ae || "").localeCompare(y.ae || "") || x.label.localeCompare(y.label)
+  const options = Object.values(accountMap).sort((x, y) =>
+    (x.label || x.key || "").localeCompare(y.label || y.key || "", undefined, {
+      sensitivity: "base",
+    })
   );
 
   return (
@@ -164,9 +166,9 @@ export function AddLabelInput({ onAdd, existing, all }) {
   const [open, setOpen] = useState(false);
   const [val, setVal] = useState("");
   const ref = useRef(null);
-  const sug = (all || []).filter(
-    (l) => !(existing || []).includes(l) && l.toLowerCase().includes(val.toLowerCase())
-  );
+  const sug = (all || [])
+    .filter((l) => !(existing || []).includes(l) && l.toLowerCase().includes(val.toLowerCase()))
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
   useEffect(() => {
     if (open) setTimeout(() => ref.current?.focus(), 40);

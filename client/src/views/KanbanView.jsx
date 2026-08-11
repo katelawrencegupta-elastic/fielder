@@ -6,7 +6,16 @@ import { isTcStage, replaceById } from "../helpers.js";
 
 const COLLAPSED_KEY = "fielder.collapsedStages";
 const SWIM_KEY = "fielder.swimlaneMode";
+const SORT_KEY = "fielder.cardSort";
 const NONE_LANE = "__none__";
+
+const SORT_OPTIONS = [
+  { key: "manual", label: "Manual" },
+  { key: "due", label: "Due date" },
+  { key: "title", label: "Title" },
+  { key: "account", label: "Account" },
+  { key: "updated", label: "Updated" },
+];
 
 function loadCollapsed() {
   try {
@@ -25,6 +34,40 @@ function saveCollapsed(set) {
 function loadSwimMode() {
   const v = localStorage.getItem(SWIM_KEY);
   return v === "account" || v === "ae" ? v : "none";
+}
+
+function loadCardSort() {
+  const v = localStorage.getItem(SORT_KEY);
+  return SORT_OPTIONS.some((o) => o.key === v) ? v : "manual";
+}
+
+function compareTasks(a, b, mode, accountMap) {
+  if (mode === "due") {
+    const ad = a.dueDate || "9999-99-99";
+    const bd = b.dueDate || "9999-99-99";
+    return ad.localeCompare(bd) || (a.position ?? 0) - (b.position ?? 0) || a.id - b.id;
+  }
+  if (mode === "title") {
+    return (
+      (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" }) ||
+      a.id - b.id
+    );
+  }
+  if (mode === "account") {
+    const al = accountMap[a.account]?.label || a.account || "";
+    const bl = accountMap[b.account]?.label || b.account || "";
+    return (
+      al.localeCompare(bl, undefined, { sensitivity: "base" }) ||
+      (a.title || "").localeCompare(b.title || "", undefined, { sensitivity: "base" }) ||
+      a.id - b.id
+    );
+  }
+  if (mode === "updated") {
+    const au = Number(a.updatedAt) || 0;
+    const bu = Number(b.updatedAt) || 0;
+    return bu - au || a.id - b.id;
+  }
+  return (a.position ?? 0) - (b.position ?? 0) || a.id - b.id;
 }
 
 function cellId(stageKey, laneId) {
@@ -72,6 +115,7 @@ export default function KanbanView({
   const [busy, setBusy] = useState(false);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [localSwim, setLocalSwim] = useState(loadSwimMode);
+  const [cardSort, setCardSort] = useState(loadCardSort);
 
   const pocMap = useMemo(() => {
     const m = {};
@@ -196,10 +240,69 @@ export default function KanbanView({
     }
 
     for (const id of Object.keys(map)) {
-      map[id].sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id);
+      map[id].sort((a, b) => compareTasks(a, b, cardSort, accountMap));
     }
     return map;
-  }, [filtered, visibleStages, swimlaneMode, lanes, accountMap]);
+  }, [filtered, visibleStages, swimlaneMode, lanes, accountMap, cardSort]);
+
+  async function setSortMode(mode) {
+    if (!SORT_OPTIONS.some((o) => o.key === mode)) return;
+    setCardSort(mode);
+    localStorage.setItem(SORT_KEY, mode);
+    if (mode === "manual") return;
+
+    // Rebuild cell lists with the new sort and persist positions so the order sticks.
+    const nextMap = {};
+    const ensure = (stageKey, laneId) => {
+      const id = cellId(stageKey, laneId);
+      if (!nextMap[id]) nextMap[id] = [];
+      return nextMap[id];
+    };
+
+    if (swimlaneMode === "none") {
+      for (const s of visibleStages) ensure(s.key, "_");
+      for (const t of filtered) {
+        if (visibleStages.some((s) => s.key === t.stage)) ensure(t.stage, "_").push(t);
+      }
+    } else {
+      for (const s of visibleStages) {
+        for (const lane of lanes || []) ensure(s.key, lane.id);
+      }
+      for (const t of filtered) {
+        if (!visibleStages.some((s) => s.key === t.stage)) continue;
+        ensure(t.stage, laneIdForTask(t, swimlaneMode, accountMap)).push(t);
+      }
+    }
+
+    const updates = [];
+    for (const id of Object.keys(nextMap)) {
+      const parsed = parseCellId(id);
+      if (!parsed) continue;
+      const list = [...nextMap[id]].sort((a, b) => compareTasks(a, b, mode, accountMap));
+      list.forEach((t, index) => {
+        updates.push({ id: t.id, stage: parsed.stageKey, position: index, account: t.account });
+      });
+    }
+    if (!updates.length) return;
+
+    const byId = new Map(updates.map((u) => [u.id, u]));
+    onTasksChange((prev) =>
+      prev.map((t) => {
+        const u = byId.get(t.id);
+        if (!u) return t;
+        return { ...t, stage: u.stage, position: u.position, account: u.account ?? t.account };
+      })
+    );
+
+    setBusy(true);
+    try {
+      await api.reorderTasks(updates);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function toggleCollapsed(key) {
     setCollapsed((prev) => {
@@ -257,6 +360,11 @@ export default function KanbanView({
 
     const [moved] = sourceList.splice(fromIndex, 1);
     if (!moved) return;
+
+    if (cardSort !== "manual") {
+      setCardSort("manual");
+      localStorage.setItem(SORT_KEY, "manual");
+    }
 
     const nextAccount =
       swimlaneMode === "none"
@@ -344,6 +452,21 @@ export default function KanbanView({
     onTasksChange((prev) => replaceById(prev, updated));
   }
 
+  async function quickMoveTask(task, stageKey) {
+    if (!task || task.stage === stageKey) return;
+    const destList = filtered.filter((t) => t.stage === stageKey && t.id !== task.id);
+    const maxPos = destList.reduce((m, t) => Math.max(m, t.position ?? 0), -1);
+    const updated = await api.updateTask(task.id, {
+      stage: stageKey,
+      position: maxPos + 1,
+    });
+    onTasksChange((prev) => replaceById(prev, updated));
+  }
+
+  const cardQuickMoveStages = showTcColumns
+    ? visibleStages.filter((s) => s.key !== "archive")
+    : null;
+
   function stageCount(stageKey) {
     if (swimlaneMode === "none") {
       return (byCell[cellId(stageKey, "_")] || []).length;
@@ -354,36 +477,125 @@ export default function KanbanView({
     );
   }
 
+  async function archiveFinishedColumn() {
+    const toArchive = filtered.filter((t) => t.stage === "done");
+    if (!toArchive.length) return;
+    const n = toArchive.length;
+    if (!window.confirm(`Archive ${n} finished card${n === 1 ? "" : "s"}?`)) return;
+
+    const maxPos = tasks
+      .filter((t) => t.stage === "archive")
+      .reduce((m, t) => Math.max(m, t.position ?? 0), -1);
+
+    const updates = toArchive.map((t, i) => ({
+      id: t.id,
+      stage: "archive",
+      position: maxPos + 1 + i,
+      account: t.account,
+    }));
+    const byId = new Map(updates.map((u) => [u.id, u]));
+
+    onTasksChange((prev) =>
+      prev.map((t) => {
+        const u = byId.get(t.id);
+        if (!u) return t;
+        return { ...t, stage: u.stage, position: u.position };
+      })
+    );
+
+    setBusy(true);
+    try {
+      await api.reorderTasks(updates);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function renderCollapseToggle(stageKey, isCollapsed) {
+    return (
+      <div className="kanban-col-toggle-col">
+        <button
+          type="button"
+          className="kanban-col-toggle"
+          title={isCollapsed ? "Expand column" : "Minimize column"}
+          aria-label={isCollapsed ? "Expand column" : "Minimize column"}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleCollapsed(stageKey);
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {isCollapsed ? (
+            <svg className="kanban-col-toggle-icon" viewBox="0 0 24 24" aria-hidden>
+              <path
+                d="M4 6h16M4 12h10M4 18h16M17 9l3 3-3 3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <svg className="kanban-col-toggle-icon" viewBox="0 0 24 24" aria-hidden>
+              <path
+                d="M4 6h16M4 12h7M4 18h16M14 9l-3 3 3 3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
+    );
+  }
+
+  function renderColumnTitle(stage, count, dragHandleProps, showGrip) {
+    const isFinished = stage.key === "done";
+    return (
+      <div
+        className="kanban-col-handle"
+        {...(dragHandleProps || {})}
+        title={dragHandleProps ? "Drag to reorder column" : undefined}
+      >
+        {showGrip && (
+          <span className="kanban-col-grip" aria-hidden>
+            ⋮⋮
+          </span>
+        )}
+        <span className="kanban-col-title">{stage.label}</span>
+        <span className="kanban-col-count">{count}</span>
+        {isFinished && count > 0 && !collapsed.has(stage.key) && (
+          <button
+            type="button"
+            className="kanban-col-archive-all"
+            title="Archive all cards in Finished"
+            onClick={(e) => {
+              e.stopPropagation();
+              archiveFinishedColumn();
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            Archive all
+          </button>
+        )}
+      </div>
+    );
+  }
+
   function renderColumnHeaders(dragEnabled) {
     return visibleStages.map((stage, colIndex) => {
       const isCollapsed = collapsed.has(stage.key);
       const count = stageCount(stage.key);
       const inner = (
         <div className="kanban-col-header">
-          <button
-            type="button"
-            className="kanban-col-toggle"
-            title={isCollapsed ? "Expand column" : "Minimize column"}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleCollapsed(stage.key);
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {isCollapsed ? "▸" : "▾"}
-          </button>
-          <div
-            className="kanban-col-handle"
-            title={dragEnabled ? "Drag to reorder column" : undefined}
-          >
-            {dragEnabled && (
-              <span className="kanban-col-grip" aria-hidden>
-                ⋮⋮
-              </span>
-            )}
-            <span className="kanban-col-title">{stage.label}</span>
-            <span className="kanban-col-count">{count}</span>
-          </div>
+          {renderCollapseToggle(stage.key, isCollapsed)}
+          {renderColumnTitle(stage, count, null, dragEnabled)}
         </div>
       );
 
@@ -409,29 +621,8 @@ export default function KanbanView({
               }`}
             >
               <div className="kanban-col-header">
-                <button
-                  type="button"
-                  className="kanban-col-toggle"
-                  title={isCollapsed ? "Expand column" : "Minimize column"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleCollapsed(stage.key);
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  {isCollapsed ? "▸" : "▾"}
-                </button>
-                <div
-                  className="kanban-col-handle"
-                  {...colProvided.dragHandleProps}
-                  title="Drag to reorder column"
-                >
-                  <span className="kanban-col-grip" aria-hidden>
-                    ⋮⋮
-                  </span>
-                  <span className="kanban-col-title">{stage.label}</span>
-                  <span className="kanban-col-count">{count}</span>
-                </div>
+                {renderCollapseToggle(stage.key, isCollapsed)}
+                {renderColumnTitle(stage, count, colProvided.dragHandleProps, true)}
               </div>
               {/* body rendered separately in flat mode */}
               <Droppable droppableId={cellId(stage.key, "_")} type="TASK">
@@ -444,29 +635,9 @@ export default function KanbanView({
                     }`}
                   >
                     {!isCollapsed &&
-                      (byCell[cellId(stage.key, "_")] || []).map((task, index) => (
-                        <Draggable key={task.id} draggableId={String(task.id)} index={index}>
-                          {(dragProvided, dragSnapshot) => (
-                            <div
-                              ref={dragProvided.innerRef}
-                              {...dragProvided.draggableProps}
-                              {...dragProvided.dragHandleProps}
-                            >
-                                        <TaskCard
-                                          task={task}
-                                          accountMap={accountMap}
-                                          pocMap={pocMap}
-                                          isDragging={dragSnapshot.isDragging}
-                                          onOpen={onOpenTask}
-                                          onRename={renameTask}
-                                          hidePocLabel={
-                                            filters.pocId != null && Number(filters.pocId) !== -1
-                                          }
-                                        />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
+                      (byCell[cellId(stage.key, "_")] || []).map((task, index) =>
+                        renderDraggableTask(task, index)
+                      )}
                     {provided.placeholder}
                     {!isCollapsed && (byCell[cellId(stage.key, "_")] || []).length === 0 && (
                       <div style={{ fontSize: 11, color: "var(--color-text-dim)", padding: 8 }}>
@@ -481,6 +652,47 @@ export default function KanbanView({
         </Draggable>
       );
     });
+  }
+
+  function renderDraggableTask(task, index, { compactMeta = false } = {}) {
+    const hidePoc = filters.pocId != null && Number(filters.pocId) !== -1;
+    const useMoveHandle = !!cardQuickMoveStages;
+    return (
+      <Draggable key={task.id} draggableId={String(task.id)} index={index}>
+        {(dragProvided, dragSnapshot) => (
+          <div
+            ref={dragProvided.innerRef}
+            {...dragProvided.draggableProps}
+            {...(useMoveHandle ? {} : dragProvided.dragHandleProps)}
+            className={useMoveHandle ? "task-drag-wrap" : undefined}
+          >
+            {useMoveHandle && (
+              <div
+                className="task-drag-handle"
+                {...dragProvided.dragHandleProps}
+                title="Drag to move"
+              >
+                ⋮⋮
+              </div>
+            )}
+            <div className={useMoveHandle ? "task-drag-body" : undefined}>
+              <TaskCard
+                task={task}
+                accountMap={accountMap}
+                pocMap={pocMap}
+                isDragging={dragSnapshot.isDragging}
+                onOpen={onOpenTask}
+                onRename={renameTask}
+                quickMoveStages={cardQuickMoveStages}
+                onQuickMove={cardQuickMoveStages ? quickMoveTask : null}
+                compactMeta={compactMeta}
+                hidePocLabel={hidePoc}
+              />
+            </div>
+          </div>
+        )}
+      </Draggable>
+    );
   }
 
   function renderTaskCell(stageKey, laneId) {
@@ -498,28 +710,11 @@ export default function KanbanView({
             }`}
           >
             {!isCollapsed &&
-              list.map((task, index) => (
-                <Draggable key={task.id} draggableId={String(task.id)} index={index}>
-                  {(dragProvided, dragSnapshot) => (
-                    <div
-                      ref={dragProvided.innerRef}
-                      {...dragProvided.draggableProps}
-                      {...dragProvided.dragHandleProps}
-                    >
-                      <TaskCard
-                        task={task}
-                        accountMap={accountMap}
-                        pocMap={pocMap}
-                        isDragging={dragSnapshot.isDragging}
-                        onOpen={onOpenTask}
-                        onRename={renameTask}
-                        compactMeta={swimlaneMode === "account"}
-                        hidePocLabel={filters.pocId != null && Number(filters.pocId) !== -1}
-                      />
-                    </div>
-                  )}
-                </Draggable>
-              ))}
+              list.map((task, index) =>
+                renderDraggableTask(task, index, {
+                  compactMeta: swimlaneMode === "account",
+                })
+              )}
             {provided.placeholder}
             {!isCollapsed && list.length === 0 && (
               <div className="swim-cell-empty">Drop</div>
@@ -551,6 +746,19 @@ export default function KanbanView({
             type="button"
             className={`chip ${swimlaneMode === opt.key ? "active" : ""}`}
             onClick={() => setSwimlaneMode(opt.key)}
+          >
+            {opt.label}
+          </button>
+        ))}
+        <span className="filter-label" style={{ marginLeft: 8 }}>
+          Sort
+        </span>
+        {SORT_OPTIONS.map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            className={`chip ${cardSort === opt.key ? "active" : ""}`}
+            onClick={() => setSortMode(opt.key)}
           >
             {opt.label}
           </button>
@@ -605,29 +813,13 @@ export default function KanbanView({
                             }`}
                           >
                             <div className="kanban-col-header">
-                              <button
-                                type="button"
-                                className="kanban-col-toggle"
-                                title={isCollapsed ? "Expand column" : "Minimize column"}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleCollapsed(stage.key);
-                                }}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              >
-                                {isCollapsed ? "▸" : "▾"}
-                              </button>
-                              <div
-                                className="kanban-col-handle"
-                                {...colProvided.dragHandleProps}
-                                title="Drag to reorder column"
-                              >
-                                <span className="kanban-col-grip" aria-hidden>
-                                  ⋮⋮
-                                </span>
-                                <span className="kanban-col-title">{stage.label}</span>
-                                <span className="kanban-col-count">{stageCount(stage.key)}</span>
-                              </div>
+                              {renderCollapseToggle(stage.key, isCollapsed)}
+                              {renderColumnTitle(
+                                stage,
+                                stageCount(stage.key),
+                                colProvided.dragHandleProps,
+                                true
+                              )}
                             </div>
                           </div>
                         )}

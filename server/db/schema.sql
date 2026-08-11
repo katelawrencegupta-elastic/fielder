@@ -90,6 +90,19 @@ CREATE TABLE IF NOT EXISTS task_labels (
   PRIMARY KEY (task_id, label)
 );
 
+-- Activity log for POC daily/weekly reports (written on task mutations).
+CREATE TABLE IF NOT EXISTS task_events (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id    INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+  poc_id     INTEGER REFERENCES pocs(id) ON DELETE SET NULL,
+  event_type TEXT NOT NULL,
+  field      TEXT,
+  old_value  TEXT,
+  new_value  TEXT,
+  title      TEXT,
+  created_at INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_tasks_account   ON tasks(account_key);
 CREATE INDEX IF NOT EXISTS idx_tasks_epic      ON tasks(epic_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_poc       ON tasks(poc_id);
@@ -97,3 +110,5 @@ CREATE INDEX IF NOT EXISTS idx_tasks_stage     ON tasks(stage_key);
 CREATE INDEX IF NOT EXISTS idx_subtasks_task   ON subtasks(task_id);
 CREATE INDEX IF NOT EXISTS idx_poc_commits_poc ON poc_commits(poc_id);
 CREATE INDEX IF NOT EXISTS idx_epics_account   ON epics(account_key);
+CREATE INDEX IF NOT EXISTS idx_task_events_poc_time ON task_events(poc_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_task_events_time ON task_events(created_at);

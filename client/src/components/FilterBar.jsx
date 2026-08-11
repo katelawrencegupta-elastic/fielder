@@ -8,16 +8,27 @@ export default function FilterBar({
   onChange,
 }) {
   const { ae, account, label, pocId } = filters;
-  const accountOptions = accounts.filter((a) => !ae || a.ae === ae);
+  const accountOptions = [...accounts]
+    .filter((a) => !ae || a.ae === ae)
+    .sort((a, b) =>
+      (a.label || a.key || "").localeCompare(b.label || b.key || "", undefined, {
+        sensitivity: "base",
+      })
+    );
   const hasActive = ae || account || label || pocId != null;
 
-  const pocOptions = [...pocs]
-    .sort((a, b) => {
-      const aArch = a.status === "archived" ? 1 : 0;
-      const bArch = b.status === "archived" ? 1 : 0;
-      if (aArch !== bArch) return aArch - bArch;
-      return (a.title || a.folderName || "").localeCompare(b.title || b.folderName || "");
+  const pocOptions = [...pocs].sort((a, b) => {
+    const aArch = a.status === "archived" ? 1 : 0;
+    const bArch = b.status === "archived" ? 1 : 0;
+    if (aArch !== bArch) return aArch - bArch;
+    return (a.title || a.folderName || "").localeCompare(b.title || b.folderName || "", undefined, {
+      sensitivity: "base",
     });
+  });
+
+  const labelOptions = [...(allLabels || [])].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
 
   function set(patch) {
     onChange({ ...filters, ...patch });
@@ -101,7 +112,7 @@ export default function FilterBar({
             onChange={(e) => set({ label: e.target.value || null })}
           >
             <option value="">All labels</option>
-            {(allLabels || []).map((l) => (
+            {labelOptions.map((l) => (
               <option key={l} value={l}>
                 {l}
               </option>

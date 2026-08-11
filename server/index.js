@@ -14,6 +14,7 @@ const tasksRouter = require("./routes/tasks");
 const labelsRouter = require("./routes/labels");
 const pocsRouter = require("./routes/pocs");
 const timelineRouter = require("./routes/timeline");
+const taskEventsRouter = require("./routes/taskEvents");
 const systemRouter = require("./routes/system");
 
 seed();
@@ -38,6 +39,7 @@ app.use("/api/tasks", tasksRouter);
 app.use("/api/labels", labelsRouter);
 app.use("/api/pocs", pocsRouter);
 app.use("/api/timeline", timelineRouter);
+app.use("/api/task-events", taskEventsRouter);
 app.use("/api", systemRouter);
 
 // Serve the built client in production.

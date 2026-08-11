@@ -38,7 +38,6 @@ const ACCOUNTS = [
   { key: "adp", label: "ADP", long: "ADP", ae: "Timothy Webster (Tim)", bg: "#301808", color: "#e08838", aeBg: "#2a2218", aeColor: "#dfb87a" },
   { key: "colgate", label: "Colgate", long: "Colgate-Palmolive", ae: "Timothy Webster (Tim)", bg: "#280800", color: "#e07020", aeBg: "#2a2218", aeColor: "#dfb87a" },
   // Internal / catch-all
-  { key: "frosty", label: "Frosty", long: "Frosty Architecture", ae: null, bg: "#1a1540", color: "#9b8ff5", aeBg: null, aeColor: null },
   { key: "other", label: "Other", long: "Other", ae: null, bg: "#1a1e28", color: "#6a7a96", aeBg: null, aeColor: null },
   // Real accounts found in the migrated task history that were never in the
   // hardcoded/sheet-synced account lists at all (not a key-mismatch — these
@@ -47,10 +46,6 @@ const ACCOUNTS = [
   // adjust colors as needed.
   { key: "milliporesigma", label: "MilliporeSigma", long: "MilliporeSigma", ae: "Peter Antoinette", bg: "#1a2430", color: "#6fa8c8", aeBg: "#2a1a2e", aeColor: "#c87adf" },
   { key: "marriott", label: "Marriott", long: "Marriott International", ae: null, bg: "#241c14", color: "#c8a068", aeBg: null, aeColor: null },
-  { key: "fitch", label: "Fitch", long: "Fitch Ratings", ae: null, bg: "#20241a", color: "#a0c878", aeBg: null, aeColor: null },
-  { key: "bentley", label: "Bentley", long: "Bentley Systems", ae: null, bg: "#241a24", color: "#c07ac0", aeBg: null, aeColor: null },
-  { key: "semplicity", label: "SEMplicity", long: "SEMplicity", ae: null, bg: "#142428", color: "#68c0c8", aeBg: null, aeColor: null },
-  { key: "geoquant", label: "GeoQuant", long: "GeoQuant", ae: null, bg: "#28201a", color: "#c89858", aeBg: null, aeColor: null },
 ];
 
 const STAGES = [

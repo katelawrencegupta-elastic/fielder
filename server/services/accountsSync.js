@@ -19,6 +19,15 @@ const FIELDWORK_DB_PATH =
   process.env.FIELDWORK_DB_PATH ||
   "/Users/klg/Documents/GItHub/fieldwork/fieldwork/0.1.0/server/fieldwork.db";
 
+/** Accounts removed from Fielder — never re-add via sync. */
+const RETIRED_ACCOUNT_KEYS = new Set([
+  "bentley",
+  "fitch",
+  "geoquant",
+  "frosty",
+  "semplicity",
+]);
+
 function readFieldworkAccountsCache(dbPath = FIELDWORK_DB_PATH) {
   if (!fs.existsSync(dbPath)) return null;
   const src = new DatabaseSync(dbPath, { readOnly: true });
@@ -52,6 +61,7 @@ function syncFromFieldwork(dbPath) {
 
   cache.accounts.forEach((a) => {
     const key = normalizeAccountKey(a.key);
+    if (RETIRED_ACCOUNT_KEYS.has(key)) return;
     const existingByKey = byKey.get(key);
     const existingByName = byLongName.get(normalizeLongName(a.long || a.label || ""));
     const match = existingByKey || existingByName;
