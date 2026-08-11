@@ -1,5 +1,12 @@
 const { all } = require("./helpers");
 
+const WORKSTREAM_KEYS = new Set(["ws1", "ws2", "ws3", "misc"]);
+
+function normalizeWorkstream(value) {
+  const v = value == null || value === "" ? "misc" : String(value);
+  return WORKSTREAM_KEYS.has(v) ? v : "misc";
+}
+
 // Batch-attach subtasks + labels to a list of task rows (avoids N+1 queries).
 function attachTaskExtras(rows) {
   if (rows.length === 0) return [];
@@ -43,6 +50,7 @@ function rowToTask(row, subtasks = [], labels = []) {
     pocId: row.poc_id,
     stage: row.stage_key,
     category: row.category || "general",
+    workstream: normalizeWorkstream(row.workstream),
     startDate: row.start_date,
     dueDate: row.due_date,
     position: row.position,
@@ -83,6 +91,7 @@ function rowToPoc(row, commitCount = 0, lastCommitAt = null) {
     targetDemoDate: row.target_demo_date,
     owner: row.owner,
     repoUrl: row.repo_url,
+    notesUrl: row.notes_url || null,
     manifestSyncedAt: row.manifest_synced_at,
     commitCount,
     lastCommitAt,
@@ -119,6 +128,8 @@ function rowToAccount(row) {
 module.exports = {
   attachTaskExtras,
   rowToTask,
+  normalizeWorkstream,
+  WORKSTREAM_KEYS,
   rowToEpic,
   rowToPoc,
   rowToCommit,

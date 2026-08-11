@@ -26,6 +26,14 @@ db.exec(fs.readFileSync(SCHEMA_PATH, "utf8"));
          AND (LOWER(title) LIKE '%demo%' OR LOWER(title) LIKE '%workshop%')`
     ).run();
   }
+  if (!cols.includes("workstream")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN workstream TEXT NOT NULL DEFAULT 'misc'");
+  }
+
+  const pocCols = db.prepare("PRAGMA table_info(pocs)").all().map((c) => c.name);
+  if (!pocCols.includes("notes_url")) {
+    db.exec("ALTER TABLE pocs ADD COLUMN notes_url TEXT");
+  }
 })();
 
 // Thin transaction helper mirroring better-sqlite3's `db.transaction(fn)`.

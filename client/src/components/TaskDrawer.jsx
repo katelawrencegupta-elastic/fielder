@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
-import { isTcStage, sortPocs } from "../helpers.js";
+import { isTcStage, sortPocs, WORKSTREAMS, normalizeWorkstream } from "../helpers.js";
 import { AccountPill, AddLabelInput, LabelPill } from "./Pills.jsx";
 
 export default function TaskDrawer({
@@ -245,6 +245,22 @@ export default function TaskDrawer({
               ))}
             </select>
           </div>
+
+          {(draft.pocId || task.pocId) && (
+            <div className="field">
+              <label>Workstream</label>
+              <select
+                value={normalizeWorkstream(draft.workstream)}
+                onChange={(e) => persistField("workstream", e.target.value)}
+              >
+                {WORKSTREAMS.map((w) => (
+                  <option key={w.key} value={w.key}>
+                    {w.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="field">
             <label>Labels</label>

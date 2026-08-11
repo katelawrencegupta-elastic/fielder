@@ -36,14 +36,21 @@ router.patch("/:id", (req, res) => {
   const existing = get("SELECT * FROM pocs WHERE id = ?", id);
   if (!existing) return res.status(404).json({ error: "Not found" });
   const b = req.body;
+  const notesUrl =
+    "notesUrl" in b
+      ? b.notesUrl == null || String(b.notesUrl).trim() === ""
+        ? null
+        : String(b.notesUrl).trim()
+      : existing.notes_url;
   run(
-    `UPDATE pocs SET account_key=?, title=?, status=?, start_date=?, target_demo_date=?, owner=?, updated_at=? WHERE id=?`,
+    `UPDATE pocs SET account_key=?, title=?, status=?, start_date=?, target_demo_date=?, owner=?, notes_url=?, updated_at=? WHERE id=?`,
     b.account ?? existing.account_key,
     b.title ?? existing.title,
     b.status ?? existing.status,
     "startDate" in b ? b.startDate : existing.start_date,
     "targetDemoDate" in b ? b.targetDemoDate : existing.target_demo_date,
     b.owner ?? existing.owner,
+    notesUrl,
     now(),
     id
   );

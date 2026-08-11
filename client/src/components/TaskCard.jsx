@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { dueDateStatus, pillStyle, softPillFromAccent } from "../helpers.js";
+import { dueDateStatus, normalizeWorkstream, pillStyle, softPillFromAccent } from "../helpers.js";
 import { AccountPill, DueDatePill, LabelPill } from "./Pills.jsx";
 
 const URL_RE = /https?:\/\/[^\s<>"']+/gi;
@@ -76,6 +76,7 @@ export default function TaskCard({
   onOpen,
   onRename,
   quickMoveStages = null,
+  quickMoveWorkstreams = null,
   onQuickMove = null,
   compactMeta = false,
   hidePocLabel = false,
@@ -86,6 +87,7 @@ export default function TaskCard({
   const [moving, setMoving] = useState(false);
   const inputRef = useRef(null);
   const skipCommitRef = useRef(false);
+  const skipOpenAfterDragRef = useRef(false);
 
   useEffect(() => {
     if (!editing) setTitleDraft(task.title || "");
@@ -97,6 +99,10 @@ export default function TaskCard({
       inputRef.current?.select();
     }
   }, [editing]);
+
+  useEffect(() => {
+    if (isDragging) skipOpenAfterDragRef.current = true;
+  }, [isDragging]);
 
   const overdue =
     dueDateStatus(task.dueDate) === "overdue" &&
@@ -110,10 +116,14 @@ export default function TaskCard({
       ? pocMap[task.pocId] || { id: task.pocId, title: `POC #${task.pocId}` }
       : null;
 
-  const canQuickMove = Array.isArray(quickMoveStages) && quickMoveStages.length > 0 && onQuickMove;
-  const moveOptions = canQuickMove
+  const stageOptions = Array.isArray(quickMoveStages)
     ? quickMoveStages.filter((s) => s.key !== task.stage)
     : [];
+  const workstreamOptions = Array.isArray(quickMoveWorkstreams)
+    ? quickMoveWorkstreams.filter((w) => w.key !== normalizeWorkstream(task.workstream))
+    : [];
+  const canQuickMove =
+    !!onQuickMove && (stageOptions.length > 0 || workstreamOptions.length > 0);
 
   function startRename(e) {
     if (!onRename) return;
@@ -153,11 +163,16 @@ export default function TaskCard({
     setTitleDraft(task.title || "");
   }
 
-  async function moveTo(stageKey) {
-    if (!onQuickMove || moving || !stageKey || stageKey === task.stage) return;
+  async function moveTo(raw) {
+    if (!onQuickMove || moving || !raw) return;
+    let patch = null;
+    if (raw.startsWith("stage:")) patch = { stage: raw.slice(6) };
+    else if (raw.startsWith("workstream:")) patch = { workstream: raw.slice(11) };
+    else patch = { stage: raw };
+    if (!patch) return;
     setMoving(true);
     try {
-      await onQuickMove(task, stageKey);
+      await onQuickMove(task, patch);
     } finally {
       setMoving(false);
     }
@@ -169,7 +184,12 @@ export default function TaskCard({
         editing ? " is-editing" : ""
       }${task.category === "demo_workshop" ? " is-demo" : ""}`}
       onClick={() => {
-        if (!editing) onOpen?.(task);
+        if (editing) return;
+        if (skipOpenAfterDragRef.current) {
+          skipOpenAfterDragRef.current = false;
+          return;
+        }
+        onOpen?.(task);
       }}
     >
       {editing ? (
@@ -215,13 +235,15 @@ export default function TaskCard({
             +{task.labels.length - (compactMeta ? 2 : 3)}
           </span>
         )}
-        {canQuickMove && moveOptions.length > 0 && (
+        {canQuickMove && (
           <select
-            className="task-card-move-select"
+            className={`task-card-move-select${
+              workstreamOptions.length ? " task-card-move-select--wide" : ""
+            }`}
             value=""
             disabled={moving}
-            aria-label="Move to column"
-            title="Move to column"
+            aria-label="Move card"
+            title="Move to column or workstream"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
@@ -234,11 +256,24 @@ export default function TaskCard({
             <option value="" disabled>
               {moving ? "…" : "Move"}
             </option>
-            {moveOptions.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
+            {stageOptions.length > 0 && (
+              <optgroup label="Column">
+                {stageOptions.map((s) => (
+                  <option key={`stage:${s.key}`} value={`stage:${s.key}`}>
+                    {s.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {workstreamOptions.length > 0 && (
+              <optgroup label="Workstream">
+                {workstreamOptions.map((w) => (
+                  <option key={`workstream:${w.key}`} value={`workstream:${w.key}`}>
+                    {w.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         )}
       </div>

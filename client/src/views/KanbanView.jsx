@@ -2,7 +2,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import TaskCard from "../components/TaskCard.jsx";
-import { isTcStage, replaceById } from "../helpers.js";
+import { isTcStage, normalizeWorkstream, replaceById, WORKSTREAMS } from "../helpers.js";
 
 const COLLAPSED_KEY = "fielder.collapsedStages";
 const SWIM_KEY = "fielder.swimlaneMode";
@@ -33,7 +33,7 @@ function saveCollapsed(set) {
 
 function loadSwimMode() {
   const v = localStorage.getItem(SWIM_KEY);
-  return v === "account" || v === "ae" ? v : "none";
+  return v === "account" || v === "ae" || v === "workstream" ? v : "none";
 }
 
 function loadCardSort() {
@@ -91,6 +91,7 @@ function laneIdForTask(task, mode, accountMap) {
     const ae = accountMap[task.account]?.ae;
     return ae || NONE_LANE;
   }
+  if (mode === "workstream") return normalizeWorkstream(task.workstream);
   return null;
 }
 
@@ -111,6 +112,8 @@ export default function KanbanView({
   embedded = false,
   swimlaneMode: swimlaneModeProp,
   onSwimlaneModeChange,
+  hideSwimlaneControls = false,
+  swimlaneOptions = null,
 }) {
   const [busy, setBusy] = useState(false);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
@@ -125,9 +128,12 @@ export default function KanbanView({
 
   const swimlaneMode = swimlaneModeProp ?? localSwim;
   const setSwimlaneMode = (mode) => {
+    if (onSwimlaneModeChange) {
+      onSwimlaneModeChange(mode);
+      return;
+    }
     localStorage.setItem(SWIM_KEY, mode);
-    if (onSwimlaneModeChange) onSwimlaneModeChange(mode);
-    else setLocalSwim(mode);
+    setLocalSwim(mode);
   };
 
   useEffect(() => {
@@ -164,6 +170,16 @@ export default function KanbanView({
 
   const lanes = useMemo(() => {
     if (swimlaneMode === "none") return null;
+
+    if (swimlaneMode === "workstream") {
+      return WORKSTREAMS.map((w) => ({
+        id: w.key,
+        label: w.label,
+        color: w.color,
+        bg: w.bg,
+        sort: w.key,
+      }));
+    }
 
     if (swimlaneMode === "account") {
       const keys = new Set();
@@ -327,6 +343,11 @@ export default function KanbanView({
     return currentAccount;
   }
 
+  function resolveWorkstreamForLane(laneId) {
+    if (swimlaneMode !== "workstream") return null;
+    return normalizeWorkstream(laneId);
+  }
+
   async function reorderColumns(fromIndex, toIndex) {
     if (fromIndex === toIndex) return;
     const nextVisible = [...visibleStages];
@@ -367,14 +388,19 @@ export default function KanbanView({
     }
 
     const nextAccount =
-      swimlaneMode === "none"
+      swimlaneMode === "none" || swimlaneMode === "workstream"
         ? moved.account
         : resolveAccountForLane(to.laneId, moved.account);
+    const nextWorkstream =
+      swimlaneMode === "workstream"
+        ? resolveWorkstreamForLane(to.laneId)
+        : normalizeWorkstream(moved.workstream);
 
     const updatedMoved = {
       ...moved,
       stage: to.stageKey,
       account: nextAccount,
+      workstream: nextWorkstream,
     };
     destList.splice(toIndex, 0, updatedMoved);
 
@@ -391,13 +417,23 @@ export default function KanbanView({
         const account =
           t.id === updatedMoved.id
             ? nextAccount
-            : swimlaneMode === "none"
+            : swimlaneMode === "none" || swimlaneMode === "workstream"
               ? t.account
               : resolveAccountForLane(laneId, t.account);
+        const workstream =
+          swimlaneMode === "workstream"
+            ? t.id === updatedMoved.id
+              ? nextWorkstream
+              : resolveWorkstreamForLane(laneId)
+            : normalizeWorkstream(t.workstream);
         const patch = { id: t.id, stage: stageKey, position: index };
-        if (swimlaneMode !== "none") patch.account = account;
-        else if (t.id === updatedMoved.id && nextAccount !== moved.account) {
+        if (swimlaneMode === "account" || swimlaneMode === "ae") {
+          patch.account = account;
+        } else if (t.id === updatedMoved.id && nextAccount !== moved.account) {
           patch.account = nextAccount;
+        }
+        if (swimlaneMode === "workstream") {
+          patch.workstream = workstream;
         }
         updates.push(patch);
       });
@@ -413,6 +449,7 @@ export default function KanbanView({
           stage: u.stage,
           position: u.position,
           ...("account" in u ? { account: u.account } : {}),
+          ...("workstream" in u ? { workstream: u.workstream } : {}),
         };
       })
     );
@@ -452,20 +489,38 @@ export default function KanbanView({
     onTasksChange((prev) => replaceById(prev, updated));
   }
 
-  async function quickMoveTask(task, stageKey) {
-    if (!task || task.stage === stageKey) return;
-    const destList = filtered.filter((t) => t.stage === stageKey && t.id !== task.id);
-    const maxPos = destList.reduce((m, t) => Math.max(m, t.position ?? 0), -1);
-    const updated = await api.updateTask(task.id, {
-      stage: stageKey,
-      position: maxPos + 1,
-    });
+  async function quickMoveTask(task, patch) {
+    if (!task || !patch || typeof patch !== "object") return;
+    const next = { ...patch };
+    if ("stage" in next) {
+      if (!next.stage || next.stage === task.stage) return;
+      const destList = filtered.filter((t) => t.stage === next.stage && t.id !== task.id);
+      const maxPos = destList.reduce((m, t) => Math.max(m, t.position ?? 0), -1);
+      next.position = maxPos + 1;
+    }
+    if ("workstream" in next) {
+      const ws = normalizeWorkstream(next.workstream);
+      if (ws === normalizeWorkstream(task.workstream)) return;
+      next.workstream = ws;
+    }
+    const updated = await api.updateTask(task.id, next);
     onTasksChange((prev) => replaceById(prev, updated));
   }
 
   const cardQuickMoveStages = showTcColumns
     ? visibleStages.filter((s) => s.key !== "archive")
     : null;
+  // Keep workstream Move targets on POC boards even when swimlanes are Off.
+  const cardQuickMoveWorkstreams =
+    swimlaneMode === "workstream" || showTcColumns ? WORKSTREAMS : null;
+
+  const swimChips =
+    swimlaneOptions ||
+    [
+      { key: "none", label: "Off" },
+      { key: "account", label: "Account" },
+      { key: "ae", label: "AE" },
+    ];
 
   function stageCount(stageKey) {
     if (swimlaneMode === "none") {
@@ -656,7 +711,10 @@ export default function KanbanView({
 
   function renderDraggableTask(task, index, { compactMeta = false } = {}) {
     const hidePoc = filters.pocId != null && Number(filters.pocId) !== -1;
-    const useMoveHandle = !!cardQuickMoveStages;
+    // TC boards use a Move <select>; keep a dedicated grip unless we're on
+    // workstream swimlanes, where the whole card should drag between rows.
+    const wholeCardDrag = swimlaneMode === "workstream";
+    const useMoveHandle = !!cardQuickMoveStages && !wholeCardDrag;
     return (
       <Draggable key={task.id} draggableId={String(task.id)} index={index}>
         {(dragProvided, dragSnapshot) => (
@@ -664,7 +722,13 @@ export default function KanbanView({
             ref={dragProvided.innerRef}
             {...dragProvided.draggableProps}
             {...(useMoveHandle ? {} : dragProvided.dragHandleProps)}
-            className={useMoveHandle ? "task-drag-wrap" : undefined}
+            className={
+              useMoveHandle
+                ? "task-drag-wrap"
+                : wholeCardDrag
+                  ? "task-drag-wrap task-drag-wrap--card"
+                  : undefined
+            }
           >
             {useMoveHandle && (
               <div
@@ -675,7 +739,7 @@ export default function KanbanView({
                 ⋮⋮
               </div>
             )}
-            <div className={useMoveHandle ? "task-drag-body" : undefined}>
+            <div className={useMoveHandle || wholeCardDrag ? "task-drag-body" : undefined}>
               <TaskCard
                 task={task}
                 accountMap={accountMap}
@@ -684,7 +748,10 @@ export default function KanbanView({
                 onOpen={onOpenTask}
                 onRename={renameTask}
                 quickMoveStages={cardQuickMoveStages}
-                onQuickMove={cardQuickMoveStages ? quickMoveTask : null}
+                quickMoveWorkstreams={cardQuickMoveWorkstreams}
+                onQuickMove={
+                  cardQuickMoveStages || cardQuickMoveWorkstreams ? quickMoveTask : null
+                }
                 compactMeta={compactMeta}
                 hidePocLabel={hidePoc}
               />
@@ -735,21 +802,21 @@ export default function KanbanView({
       }
     >
       <div className="kanban-toolbar">
-        <span className="filter-label">Swimlanes</span>
-        {[
-          { key: "none", label: "Off" },
-          { key: "account", label: "Account" },
-          { key: "ae", label: "AE" },
-        ].map((opt) => (
-          <button
-            key={opt.key}
-            type="button"
-            className={`chip ${swimlaneMode === opt.key ? "active" : ""}`}
-            onClick={() => setSwimlaneMode(opt.key)}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {!hideSwimlaneControls && (
+          <>
+            <span className="filter-label">Swimlanes</span>
+            {swimChips.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`chip ${swimlaneMode === opt.key ? "active" : ""}`}
+                onClick={() => setSwimlaneMode(opt.key)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </>
+        )}
         <span className="filter-label" style={{ marginLeft: 8 }}>
           Sort
         </span>
@@ -794,7 +861,11 @@ export default function KanbanView({
                   {...headerProvided.droppableProps}
                 >
                   <div className="swim-lane-label swim-corner">
-                    {swimlaneMode === "ae" ? "AE" : "Account"}
+                    {swimlaneMode === "ae"
+                      ? "AE"
+                      : swimlaneMode === "workstream"
+                        ? "Workstream"
+                        : "Account"}
                   </div>
                   {visibleStages.map((stage, colIndex) => {
                     const isCollapsed = collapsed.has(stage.key);

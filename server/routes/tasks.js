@@ -1,6 +1,6 @@
 const express = require("express");
 const { all, get, run, now } = require("../db/helpers");
-const { attachTaskExtras } = require("../db/serializers");
+const { attachTaskExtras, normalizeWorkstream } = require("../db/serializers");
 const { recordEvent, diffAndRecord, fromRow } = require("../services/taskEvents");
 
 const router = express.Router();
@@ -32,9 +32,10 @@ router.post("/", (req, res) => {
   const stage = b.stage || "backlog";
   const title = b.title.trim();
   const pocId = b.pocId ?? null;
+  const workstream = normalizeWorkstream(b.workstream);
   const info = run(
-    `INSERT INTO tasks (title, description, account_key, epic_id, poc_id, stage_key, category, start_date, due_date, position, source, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO tasks (title, description, account_key, epic_id, poc_id, stage_key, category, workstream, start_date, due_date, position, source, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     title,
     b.description ?? null,
     b.account || "other",
@@ -42,6 +43,7 @@ router.post("/", (req, res) => {
     pocId,
     stage,
     category,
+    workstream,
     b.startDate ?? null,
     b.dueDate ?? null,
     maxPos + 1,
@@ -86,12 +88,13 @@ router.patch("/:id", (req, res) => {
     pocId: "pocId" in b ? b.pocId : existing.poc_id,
     stage: b.stage ?? existing.stage_key,
     category: nextCategory,
+    workstream: "workstream" in b ? normalizeWorkstream(b.workstream) : normalizeWorkstream(existing.workstream),
     startDate: "startDate" in b ? b.startDate : existing.start_date,
     dueDate: "dueDate" in b ? b.dueDate : existing.due_date,
   };
   const ts = now();
   run(
-    `UPDATE tasks SET title=?, description=?, account_key=?, epic_id=?, poc_id=?, stage_key=?, category=?, start_date=?, due_date=?, position=?, updated_at=? WHERE id=?`,
+    `UPDATE tasks SET title=?, description=?, account_key=?, epic_id=?, poc_id=?, stage_key=?, category=?, workstream=?, start_date=?, due_date=?, position=?, updated_at=? WHERE id=?`,
     after.title,
     after.description,
     after.account,
@@ -99,6 +102,7 @@ router.patch("/:id", (req, res) => {
     after.pocId == null ? null : Number(after.pocId),
     after.stage,
     after.category,
+    after.workstream,
     after.startDate,
     after.dueDate,
     "position" in b ? b.position : existing.position,
@@ -124,9 +128,9 @@ router.delete("/:id", (req, res) => {
 });
 
 // POST /api/tasks/reorder — bulk-update stage + position after a drag-and-drop move.
-// body: { updates: [{ id, stage, position, account?, pocId? }, ...] }
-// `account` / `pocId` are optional — present when a card was dragged into a
-// different account swimlane or POC sub-lane.
+// body: { updates: [{ id, stage, position, account?, pocId?, workstream? }, ...] }
+// `account` / `pocId` / `workstream` are optional — present when a card was dragged into a
+// different account swimlane, POC sub-lane, or workstream lane.
 router.post("/reorder", (req, res) => {
   const updates = req.body.updates || [];
   const ts = now();
@@ -144,6 +148,10 @@ router.post("/reorder", (req, res) => {
       sets.push("poc_id=?");
       params.push(u.pocId == null ? null : Number(u.pocId));
     }
+    if ("workstream" in u) {
+      sets.push("workstream=?");
+      params.push(normalizeWorkstream(u.workstream));
+    }
     params.push(u.id);
     run(`UPDATE tasks SET ${sets.join(", ")} WHERE id=?`, ...params);
 
@@ -155,10 +163,14 @@ router.post("/reorder", (req, res) => {
       pocId: "pocId" in u ? (u.pocId == null ? null : Number(u.pocId)) : existing.poc_id,
       stage: u.stage,
       category: existing.category || "general",
+      workstream:
+        "workstream" in u
+          ? normalizeWorkstream(u.workstream)
+          : normalizeWorkstream(existing.workstream),
       startDate: existing.start_date,
       dueDate: existing.due_date,
     };
-    // Only stage / account / poc — ignore pure position shuffles.
+    // Only stage / account / poc / workstream — ignore pure position shuffles.
     diffAndRecord(fromRow(existing), after, ts);
   });
   res.json({ ok: true });

@@ -372,7 +372,7 @@ a {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 8px;
-  min-height: 88px;
+  min-height: 120px;
   transition: background 0.12s, flex-basis 0.15s ease, width 0.15s ease, min-width 0.15s ease,
     opacity 0.15s ease, filter 0.15s ease, padding 0.15s ease;
 }
@@ -744,6 +744,18 @@ a {
   margin-bottom: 7px;
 }
 
+.task-drag-wrap--card {
+  cursor: grab;
+}
+
+.task-drag-wrap--card:active {
+  cursor: grabbing;
+}
+
+.task-drag-wrap--card .task-card {
+  cursor: inherit;
+}
+
 .task-drag-wrap .task-card {
   margin-bottom: 0;
   flex: 1;
@@ -799,6 +811,10 @@ a {
   background: #1f4a34 !important;
   color: #f2f7f4 !important;
   cursor: pointer;
+}
+
+.task-card-move-select--wide {
+  max-width: 96px;
 }
 
 .task-card-move-select:hover:not(:disabled),
@@ -1125,6 +1141,18 @@ a {
   font-family: monospace;
 }
 
+.poc-picker-notes {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.poc-picker-notes:hover {
+  opacity: 0.85;
+}
+
 .poc-board-header {
   display: flex;
   align-items: flex-end;
@@ -1133,6 +1161,40 @@ a {
   margin-bottom: 8px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--color-border);
+}
+
+.poc-board-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+a.btn-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 560;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+a.btn-link:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+a.btn-link.primary-link {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-card));
+  color: var(--color-accent);
+  font-weight: 650;
 }
 
 .loading {

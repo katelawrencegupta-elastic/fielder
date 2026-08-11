@@ -50,6 +50,7 @@ function fromRow(row) {
     pocId: row.poc_id,
     stage: row.stage_key,
     category: row.category || "general",
+    workstream: row.workstream || "misc",
     startDate: row.start_date,
     dueDate: row.due_date,
   };
@@ -63,6 +64,7 @@ const TRACKED = [
   { field: "account", eventType: "account_changed", key: "account" },
   { field: "poc_id", eventType: "poc_changed", key: "pocId" },
   { field: "category", eventType: "category_changed", key: "category" },
+  { field: "workstream", eventType: "workstream_changed", key: "workstream" },
   { field: "description", eventType: "description_changed", key: "description" },
 ];
 

@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS pocs (
   target_demo_date   TEXT,
   owner              TEXT,
   repo_url           TEXT,
+  notes_url          TEXT,
   manifest_synced_at INTEGER,
   created_at         INTEGER NOT NULL,
   updated_at         INTEGER NOT NULL
@@ -67,6 +68,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   stage_key   TEXT NOT NULL DEFAULT 'backlog' REFERENCES stages(key),
   -- general | demo_workshop — demos/workshops surface on the calendar view
   category    TEXT NOT NULL DEFAULT 'general',
+  -- POC board swimlane: ws1 | ws2 | ws3 | misc
+  workstream  TEXT NOT NULL DEFAULT 'misc',
   start_date  TEXT,
   due_date    TEXT,
   position    INTEGER NOT NULL DEFAULT 0,

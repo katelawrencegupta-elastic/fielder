@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
-import { isTcStage, POC_STATUSES } from "../helpers.js";
+import { isTcStage, POC_STATUSES, WORKSTREAMS } from "../helpers.js";
 import { AccountPill, StatusPill } from "../components/Pills.jsx";
 import KanbanView from "./KanbanView.jsx";
+
+const POC_SWIM_KEY = "fielder.pocSwimlaneMode";
+
+function loadPocSwimMode() {
+  try {
+    const v = sessionStorage.getItem(POC_SWIM_KEY);
+    return v === "none" ? "none" : "workstream";
+  } catch {
+    return "workstream";
+  }
+}
 
 export default function PocsView({
   pocs,
@@ -24,11 +35,13 @@ export default function PocsView({
   const [editing, setEditing] = useState(null);
   const [showTaskArchive, setShowTaskArchive] = useState(false);
   const [showArchivedPocs, setShowArchivedPocs] = useState(false);
+  const [pocSwimlaneMode, setPocSwimlaneMode] = useState(loadPocSwimMode);
   const [newOpen, setNewOpen] = useState(false);
   const [newTask, setNewTask] = useState({
     title: "",
     account: "",
     stage: "backlog",
+    workstream: "misc",
     dueDate: "",
   });
 
@@ -76,6 +89,21 @@ export default function PocsView({
       .catch((e) => console.error(e));
   }, [selected]);
 
+  // Refresh POC list when this tab mounts so fields like notesUrl stay current.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getPocs()
+      .then((next) => {
+        if (!cancelled) onPocsChange(next);
+      })
+      .catch((e) => console.error(e));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const boardFilters = useMemo(
     () => ({ pocId: selected?.id ?? -1, ae: null, account: null, label: null }),
     [selected]
@@ -107,6 +135,7 @@ export default function PocsView({
       startDate: editing.startDate || null,
       targetDemoDate: editing.targetDemoDate || null,
       owner: editing.owner || null,
+      notesUrl: editing.notesUrl || null,
     });
     onPocsChange(pocs.map((p) => (p.id === updated.id ? updated : p)));
     setEditing(null);
@@ -138,6 +167,7 @@ export default function PocsView({
       title: "",
       account: selected.account || accounts[0]?.key || "other",
       stage: defaultStage,
+      workstream: "misc",
       dueDate: "",
     });
     setNewOpen(true);
@@ -150,6 +180,7 @@ export default function PocsView({
       title: newTask.title.trim(),
       account: newTask.account || selected.account || "other",
       stage: newTask.stage || "backlog",
+      workstream: newTask.workstream || "misc",
       dueDate: newTask.dueDate || null,
       category: "general",
       pocId: selected.id,
@@ -160,6 +191,7 @@ export default function PocsView({
       title: "",
       account: newTask.account,
       stage: newTask.stage,
+      workstream: newTask.workstream || "misc",
       dueDate: "",
     });
     flash?.("Task created");
@@ -217,16 +249,27 @@ export default function PocsView({
                       title: selected.title || selected.folderName || "",
                       account: selected.account || "",
                       status: selected.status || "planning",
+                      notesUrl: selected.notesUrl || "",
                     })
                   }
                 >
                   Edit POC
                 </button>
-                {selected.repoUrl && (
-                  <a href={selected.repoUrl} target="_blank" rel="noreferrer">
-                    <button type="button">Repo</button>
+                {selected.notesUrl ? (
+                  <a
+                    className="btn-link"
+                    href={selected.notesUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Notes doc
                   </a>
-                )}
+                ) : null}
+                {selected.repoUrl ? (
+                  <a className="btn-link" href={selected.repoUrl} target="_blank" rel="noreferrer">
+                    Repo
+                  </a>
+                ) : null}
               </>
             )}
             <button type="button" className="primary" onClick={sync} disabled={syncing}>
@@ -262,6 +305,18 @@ export default function PocsView({
                     <span className="poc-picker-count">
                       {count} task{count === 1 ? "" : "s"}
                     </span>
+                    {poc.notesUrl ? (
+                      <a
+                        className="poc-picker-notes"
+                        href={poc.notesUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open notes doc"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Notes
+                      </a>
+                    ) : null}
                   </div>
                 </button>
               );
@@ -280,9 +335,21 @@ export default function PocsView({
                   ` · ${selected.startDate || "—"} → ${selected.targetDemoDate || "—"}`}
               </div>
             </div>
-            <button type="button" className="primary" onClick={openNewTask}>
-              New task
-            </button>
+            <div className="poc-board-header-actions">
+              {selected.notesUrl ? (
+                <a
+                  className="btn-link primary-link"
+                  href={selected.notesUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open notes doc
+                </a>
+              ) : null}
+              <button type="button" className="primary" onClick={openNewTask}>
+                New task
+              </button>
+            </div>
           </div>
         )}
 
@@ -333,6 +400,20 @@ export default function PocsView({
             onOpenTask={onOpenTask}
             embedded
             showTcColumns
+            swimlaneMode={pocSwimlaneMode}
+            onSwimlaneModeChange={(mode) => {
+              const next = mode === "none" ? "none" : "workstream";
+              setPocSwimlaneMode(next);
+              try {
+                sessionStorage.setItem(POC_SWIM_KEY, next);
+              } catch {
+                /* ignore */
+              }
+            }}
+            swimlaneOptions={[
+              { key: "none", label: "Off" },
+              { key: "workstream", label: "Workstream" },
+            ]}
           />
         </div>
       )}
@@ -382,13 +463,28 @@ export default function PocsView({
                 </select>
               </div>
             </div>
-            <div className="field" style={{ marginBottom: 14 }}>
-              <label>Due date</label>
-              <input
-                type="date"
-                value={newTask.dueDate}
-                onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-              />
+            <div className="field-row" style={{ marginBottom: 10 }}>
+              <div className="field">
+                <label>Workstream</label>
+                <select
+                  value={newTask.workstream || "misc"}
+                  onChange={(e) => setNewTask({ ...newTask, workstream: e.target.value })}
+                >
+                  {WORKSTREAMS.map((w) => (
+                    <option key={w.key} value={w.key}>
+                      {w.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Due date</label>
+                <input
+                  type="date"
+                  value={newTask.dueDate}
+                  onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                />
+              </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button type="submit" className="primary">
@@ -460,11 +556,20 @@ export default function PocsView({
                 />
               </div>
             </div>
-            <div className="field" style={{ marginBottom: 14 }}>
+            <div className="field" style={{ marginBottom: 10 }}>
               <label>Owner</label>
               <input
                 value={editing.owner}
                 onChange={(e) => setEditing({ ...editing, owner: e.target.value })}
+              />
+            </div>
+            <div className="field" style={{ marginBottom: 14 }}>
+              <label>Notes doc URL</label>
+              <input
+                type="url"
+                placeholder="https://docs.google.com/document/…"
+                value={editing.notesUrl || ""}
+                onChange={(e) => setEditing({ ...editing, notesUrl: e.target.value })}
               />
             </div>
             <div style={{ display: "flex", gap: 8 }}>

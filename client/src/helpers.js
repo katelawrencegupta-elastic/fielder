@@ -176,6 +176,25 @@ export const POC_STATUSES = [
   { key: "archived", label: "Archived" },
 ];
 
+/** Fixed swimlanes on the POC board. */
+export const WORKSTREAMS = [
+  { key: "ws1", label: "Workstream #1", bg: "#e8f0fa", color: "#2f5aaa" },
+  { key: "ws2", label: "Workstream #2", bg: "#e8f5ef", color: "#1f7a45" },
+  { key: "ws3", label: "Workstream #3", bg: "#f5eee3", color: "#8a5a20" },
+  { key: "misc", label: "Misc", bg: "#eef1f4", color: "#5a6a7a" },
+];
+
+export const WORKSTREAM_KEYS = new Set(WORKSTREAMS.map((w) => w.key));
+
+export function normalizeWorkstream(value) {
+  const v = value == null || value === "" ? "misc" : String(value);
+  return WORKSTREAM_KEYS.has(v) ? v : "misc";
+}
+
+export function workstreamLabel(key) {
+  return WORKSTREAMS.find((w) => w.key === key)?.label || key || "Misc";
+}
+
 export function replaceById(list, item) {
   return list.map((x) => (x.id === item.id ? item : x));
 }

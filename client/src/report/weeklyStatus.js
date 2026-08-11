@@ -368,6 +368,13 @@ export function formatEventLine(event, stages = []) {
       return `Changed account on ${title}: ${event.oldValue || "—"} → ${event.newValue || "—"}`;
     case "poc_changed":
       return `Changed POC link on ${title}`;
+    case "workstream_changed": {
+      const label = (k) =>
+        ({ ws1: "Workstream #1", ws2: "Workstream #2", ws3: "Workstream #3", misc: "Misc" }[k] ||
+        k ||
+        "—");
+      return `Moved ${title} ${label(event.oldValue)} → ${label(event.newValue)}`;
+    }
     case "category_changed":
       return `Changed category on ${title}: ${event.oldValue || "—"} → ${event.newValue || "—"}`;
     case "description_changed":
