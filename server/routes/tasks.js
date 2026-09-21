@@ -1,5 +1,6 @@
 const express = require("express");
-const { all, get, run, now } = require("../db/helpers");
+const helpers = require("../db/helpers");
+const { all, get, run, now } = helpers;
 const { attachTaskExtras, normalizeWorkstream } = require("../db/serializers");
 const { recordEvent, diffAndRecord, fromRow } = require("../services/taskEvents");
 
@@ -11,12 +12,14 @@ function fetchTaskFull(id) {
   return attachTaskExtras([row])[0];
 }
 
-// GET /api/tasks — full list; filtering/sorting happens client-side (small dataset,
-// mirrors the existing fieldwork app's approach) except for the optional ?pocId filter
-// used by the POC detail view.
+// GET /api/tasks — full list except optional ?pocId (SQL-filtered for the POC detail view).
 router.get("/", (req, res) => {
-  let rows = all("SELECT * FROM tasks ORDER BY position ASC, created_at ASC");
-  if (req.query.pocId) rows = rows.filter((r) => String(r.poc_id) === String(req.query.pocId));
+  const rows = req.query.pocId
+    ? all(
+        "SELECT * FROM tasks WHERE poc_id = ? ORDER BY position ASC, created_at ASC",
+        Number(req.query.pocId)
+      )
+    : all("SELECT * FROM tasks ORDER BY position ASC, created_at ASC");
   res.json(attachTaskExtras(rows));
 });
 
@@ -134,45 +137,47 @@ router.delete("/:id", (req, res) => {
 router.post("/reorder", (req, res) => {
   const updates = req.body.updates || [];
   const ts = now();
-  updates.forEach((u) => {
-    const existing = get("SELECT * FROM tasks WHERE id = ?", u.id);
-    if (!existing) return;
+  helpers.db.transaction(() => {
+    updates.forEach((u) => {
+      const existing = get("SELECT * FROM tasks WHERE id = ?", u.id);
+      if (!existing) return;
 
-    const sets = ["stage_key=?", "position=?", "updated_at=?"];
-    const params = [u.stage, u.position, ts];
-    if ("account" in u) {
-      sets.push("account_key=?");
-      params.push(u.account);
-    }
-    if ("pocId" in u) {
-      sets.push("poc_id=?");
-      params.push(u.pocId == null ? null : Number(u.pocId));
-    }
-    if ("workstream" in u) {
-      sets.push("workstream=?");
-      params.push(normalizeWorkstream(u.workstream));
-    }
-    params.push(u.id);
-    run(`UPDATE tasks SET ${sets.join(", ")} WHERE id=?`, ...params);
+      const sets = ["stage_key=?", "position=?", "updated_at=?"];
+      const params = [u.stage, u.position, ts];
+      if ("account" in u) {
+        sets.push("account_key=?");
+        params.push(u.account);
+      }
+      if ("pocId" in u) {
+        sets.push("poc_id=?");
+        params.push(u.pocId == null ? null : Number(u.pocId));
+      }
+      if ("workstream" in u) {
+        sets.push("workstream=?");
+        params.push(normalizeWorkstream(u.workstream));
+      }
+      params.push(u.id);
+      run(`UPDATE tasks SET ${sets.join(", ")} WHERE id=?`, ...params);
 
-    const after = {
-      id: existing.id,
-      title: existing.title,
-      description: existing.description,
-      account: "account" in u ? u.account : existing.account_key,
-      pocId: "pocId" in u ? (u.pocId == null ? null : Number(u.pocId)) : existing.poc_id,
-      stage: u.stage,
-      category: existing.category || "general",
-      workstream:
-        "workstream" in u
-          ? normalizeWorkstream(u.workstream)
-          : normalizeWorkstream(existing.workstream),
-      startDate: existing.start_date,
-      dueDate: existing.due_date,
-    };
-    // Only stage / account / poc / workstream — ignore pure position shuffles.
-    diffAndRecord(fromRow(existing), after, ts);
-  });
+      const after = {
+        id: existing.id,
+        title: existing.title,
+        description: existing.description,
+        account: "account" in u ? u.account : existing.account_key,
+        pocId: "pocId" in u ? (u.pocId == null ? null : Number(u.pocId)) : existing.poc_id,
+        stage: u.stage,
+        category: existing.category || "general",
+        workstream:
+          "workstream" in u
+            ? normalizeWorkstream(u.workstream)
+            : normalizeWorkstream(existing.workstream),
+        startDate: existing.start_date,
+        dueDate: existing.due_date,
+      };
+      // Only stage / account / poc / workstream — ignore pure position shuffles.
+      diffAndRecord(fromRow(existing), after, ts);
+    });
+  })();
   res.json({ ok: true });
 });
 

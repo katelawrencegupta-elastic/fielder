@@ -4,8 +4,9 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 
+const client = require("./db/client");
 const { seed } = require("./db/seed");
-const { startSnapshotInterval } = require("./services/snapshot");
+const { startSnapshotInterval, stopSnapshotInterval } = require("./services/snapshot");
 
 const accountsRouter = require("./routes/accounts");
 const stagesRouter = require("./routes/stages");
@@ -13,6 +14,8 @@ const epicsRouter = require("./routes/epics");
 const tasksRouter = require("./routes/tasks");
 const labelsRouter = require("./routes/labels");
 const pocsRouter = require("./routes/pocs");
+const meetingsRouter = require("./routes/meetings");
+const calendarRouter = require("./routes/calendar");
 const timelineRouter = require("./routes/timeline");
 const taskEventsRouter = require("./routes/taskEvents");
 const systemRouter = require("./routes/system");
@@ -20,13 +23,16 @@ const systemRouter = require("./routes/system");
 seed();
 
 const app = express();
-const PORT = process.env.PORT || 3101;
+const PORT = Number(process.env.PORT) || 3101;
+const HOST = process.env.HOST || "127.0.0.1";
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) return cb(null, true);
-      cb(new Error("Not allowed by CORS"));
+      if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return cb(null, true);
+      }
+      cb(null, false);
     },
   })
 );
@@ -38,6 +44,8 @@ app.use("/api/epics", epicsRouter);
 app.use("/api/tasks", tasksRouter);
 app.use("/api/labels", labelsRouter);
 app.use("/api/pocs", pocsRouter);
+app.use("/api/meetings", meetingsRouter);
+app.use("/api/calendar", calendarRouter);
 app.use("/api/timeline", timelineRouter);
 app.use("/api/task-events", taskEventsRouter);
 app.use("/api", systemRouter);
@@ -51,7 +59,35 @@ app.get(/^(?!\/api).*/, (req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`\nFielder server running at http://localhost:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`\nFielder server running at http://${HOST}:${PORT}`);
   startSnapshotInterval();
 });
+
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received, shutting down`);
+  stopSnapshotInterval();
+  const force = setTimeout(() => {
+    try {
+      client.closeDatabase();
+    } catch {
+      /* ignore */
+    }
+    process.exit(1);
+  }, 8000);
+  force.unref();
+  server.close(() => {
+    try {
+      client.closeDatabase();
+    } catch (err) {
+      console.error("Error closing database:", err.message);
+    }
+    process.exit(0);
+  });
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

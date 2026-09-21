@@ -1,29 +1,16 @@
 #!/usr/bin/env node
 /**
- * Sync GE Vernova Observability POC Kanban cards → Google Doc, then keep a
- * Drive revision forever (named version / versioning).
- *
- * Doc: https://docs.google.com/document/d/1YgE2fsHJyU-fTbRiroBisCIPhyuKAZ_x6Orex578McE/edit
- *
- * Auth (pick one):
- *   1) OAuth (recommended): put client_secret_*.json in server/auth/, then
- *        node server/scripts/google-oauth-login.js
- *      (saves server/auth/token.json; add redirect URI http://127.0.0.1:8765/oauth2callback)
- *   2) export GOOGLE_ACCESS_TOKEN="ya29...."
- *   3) export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json
- *      (SA must have edit access on the Doc)
+ * Export a POC's Kanban cards to a local status text file and record the
+ * linked notes Doc id (no Google API auth / remote push).
  *
  * Usage:
  *   node server/scripts/sync-poc-gdoc.js
- *   node server/scripts/sync-poc-gdoc.js --poc-id=3 --doc-id=1YgE2fsHJyU-fTbRiroBisCIPhyuKAZ_x6Orex578McE
- *
- * Without credentials, writes the export to server/data/ and exits 2.
+ *   node server/scripts/sync-poc-gdoc.js --poc-id=5 --doc-id=1ihjsdsvSj_dyPTM8CzMu0M6A_esBGOeeOMmS_vfLN_I
  */
 const fs = require("fs");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
 const { writeSnapshot } = require("../services/snapshot");
-const { getAccessToken } = require("./google-auth");
 
 const DEFAULT_POC_ID = 3;
 const DEFAULT_DOC_ID = "1YgE2fsHJyU-fTbRiroBisCIPhyuKAZ_x6Orex578McE";
@@ -105,83 +92,15 @@ function saveLocal(pocId, docId, payload) {
     pocId,
     title: payload.poc.title || payload.poc.folder_name,
     docId,
-    docUrl: `https://docs.google.com/document/d/${docId}/edit`,
-    versioning: true,
+    docUrl: docId ? `https://docs.google.com/document/d/${docId}/edit` : null,
+    versioning: false,
     lastLocalExportAt: payload.stamp,
   };
   fs.writeFileSync(LINKS_PATH, JSON.stringify(links, null, 2) + "\n");
   return out;
 }
 
-async function syncToGoogleDoc(docId, text, token) {
-  const getRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!getRes.ok) throw new Error(`docs.get failed: ${getRes.status} ${await getRes.text()}`);
-  const doc = await getRes.json();
-  const revisionId = doc.revisionId;
-  const endIndex = doc.body?.content?.at(-1)?.endIndex ?? 1;
-
-  const requests = [];
-  // Clear existing body (leave the final newline structural index)
-  if (endIndex > 2) {
-    requests.push({
-      deleteContentRange: {
-        range: { startIndex: 1, endIndex: endIndex - 1 },
-      },
-    });
-  }
-  requests.push({
-    insertText: {
-      location: { index: 1 },
-      text,
-    },
-  });
-
-  const batchRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      requests,
-      writeControl: { targetRevisionId: revisionId },
-    }),
-  });
-  if (!batchRes.ok) throw new Error(`docs.batchUpdate failed: ${batchRes.status} ${await batchRes.text()}`);
-
-  // Enable / keep a permanent revision (versioning)
-  const revList = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${docId}/revisions?fields=revisions(id,keepForever,modifiedTime)`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  if (!revList.ok) throw new Error(`revisions.list failed: ${revList.status} ${await revList.text()}`);
-  const { revisions = [] } = await revList.json();
-  const latest = revisions.at(-1);
-  if (latest?.id) {
-    const keep = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${docId}/revisions/${latest.id}?fields=id,keepForever`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ keepForever: true }),
-      }
-    );
-    if (!keep.ok) {
-      console.warn(`Could not keepForever revision: ${keep.status} ${await keep.text()}`);
-    } else {
-      console.log(`Versioning: revision ${latest.id} keepForever=true`);
-    }
-  }
-
-  return { revisionId, latestRevisionId: latest?.id };
-}
-
-async function main() {
+function main() {
   const pocId = Number(arg("poc-id", DEFAULT_POC_ID));
   const docId = arg("doc-id", linkedDocId(pocId, DEFAULT_DOC_ID));
 
@@ -191,39 +110,9 @@ async function main() {
   const payload = buildStatusText(pocId);
   const outPath = saveLocal(pocId, docId, payload);
   console.log(`Local export: ${outPath}`);
-
-  let token;
-  try {
-    token = await getAccessToken();
-  } catch (e) {
-    console.error("Auth error:", e.message);
+  if (docId) {
+    console.log(`Linked notes Doc: https://docs.google.com/document/d/${docId}/edit`);
   }
-
-  if (!token) {
-    console.error(`
-No Google credentials available.
-Run:  node server/scripts/google-oauth-login.js
-  (needs client_secret_*.json in server/auth/ + redirect URI registered)
-Or set GOOGLE_ACCESS_TOKEN / GOOGLE_APPLICATION_CREDENTIALS.
-The status text is ready at:
-  ${outPath}
-Doc:
-  https://docs.google.com/document/d/${docId}/edit
-`);
-    process.exit(2);
-  }
-
-  console.log(`Pushing to Google Doc ${docId}…`);
-  const result = await syncToGoogleDoc(docId, payload.text, token);
-  console.log("Synced.", result);
-
-  const links = JSON.parse(fs.readFileSync(LINKS_PATH, "utf8"));
-  links[String(pocId)].lastRemoteSyncAt = new Date().toISOString();
-  links[String(pocId)].lastKeptRevisionId = result.latestRevisionId || null;
-  fs.writeFileSync(LINKS_PATH, JSON.stringify(links, null, 2) + "\n");
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main();

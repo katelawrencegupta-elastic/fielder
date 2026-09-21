@@ -15,6 +15,38 @@ const LABEL_PALETTE = [
   { bg: "#f6eadc", color: "#9a5520" },
 ];
 
+/** Distinct accents for POC pills / timeline (indexed by poc id). */
+const POC_ACCENTS = [
+  "#2f6fad", // blue
+  "#1f7a45", // green
+  "#9a3a6a", // magenta
+  "#c45c16", // orange
+  "#6a3aaa", // purple
+  "#a83838", // red
+  "#1a7a68", // teal
+  "#8a5a10", // amber
+  "#2a6a8a", // steel
+  "#7a3d8f", // violet
+  "#3a5620", // olive
+  "#b03a5a", // rose
+  "#0e6b8a", // cyan
+  "#6b4f1d", // brown
+  "#4a5a9a", // indigo
+  "#5a7a20", // lime-olive
+];
+
+/** Stable pastel pill colors for a POC (by id when available). */
+export function pocPillColor(poc) {
+  const id = Number(poc?.id);
+  if (Number.isFinite(id) && id > 0) {
+    return softPillFromAccent(POC_ACCENTS[(id * 7) % POC_ACCENTS.length]);
+  }
+  const key = String(poc?.title || poc?.folderName || poc?.folder_name || "poc");
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return softPillFromAccent(POC_ACCENTS[h % POC_ACCENTS.length]);
+}
+
 function parseHex(hex) {
   if (!hex || typeof hex !== "string") return null;
   const h = hex.replace("#", "").trim();

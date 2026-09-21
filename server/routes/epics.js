@@ -21,8 +21,9 @@ function taskStatsForEpics(epicIds) {
 }
 
 router.get("/", (req, res) => {
-  let rows = all("SELECT * FROM epics ORDER BY created_at DESC");
-  if (req.query.account) rows = rows.filter((r) => r.account_key === req.query.account);
+  const rows = req.query.account
+    ? all("SELECT * FROM epics WHERE account_key = ? ORDER BY created_at DESC", req.query.account)
+    : all("SELECT * FROM epics ORDER BY created_at DESC");
   const stats = taskStatsForEpics(rows.map((r) => r.id));
   res.json(rows.map((r) => rowToEpic(r, stats[r.id] || { total: 0, done: 0 })));
 });

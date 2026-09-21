@@ -38,11 +38,11 @@ Safe to re-run — it skips the import if fieldwork-sourced tasks already exist
 ## Running
 
 ```bash
-npm run dev:server   # http://localhost:3101 — API + seeds the DB on first boot
-npm run dev:client   # http://localhost:5173 — Vite dev server, proxies /api to the server
+npm run dev:server   # http://127.0.0.1:3101 — API + seeds the DB on first boot
+npm run dev:client   # http://127.0.0.1:5173 — Vite dev server, proxies /api to the server
 ```
 
-Open `http://localhost:5173`.
+Open `http://127.0.0.1:5173`.
 
 For a single-process production-style run instead:
 
@@ -80,7 +80,7 @@ syncing only overwrites a field if the manifest actually sets it. See the
 ## Data safety
 
 - The DB (`server/fielder.db`) is a real file-backed SQLite database (WAL mode).
-- A snapshot is written to `server/snapshots/` every 10 minutes (last 24h kept). Use the **Snapshots** menu in the app header to save one on demand or restore an older one (restoring requires restarting the server).
+- A snapshot is written to `server/snapshots/` every hour. Use the **Snapshots** menu in the app header to save one on demand or restore an older one (restore reopens the database in-process; no server restart).
 - **Export** (top right) downloads all tasks as JSON; **Import** accepts that same JSON shape to bulk-add tasks.
 
 ## Project layout

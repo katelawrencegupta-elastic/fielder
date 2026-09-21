@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.fielder.server</string>
+  <key>WorkingDirectory</key>
+  <string>/Users/klg/Documents/GItHub/fielder/fielder/server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>index.js</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>SPARK_CLI_PATH</key>
+    <string>/usr/local/bin/spark</string>
+    <key>CALENDAR_SPARK</key>
+    <string>1</string>
+    <key>CALENDAR_ICS_URL</key>
+    <string>https://calendar.google.com/calendar/ical/REDACTED/public/basic.ics</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/klg/Documents/GItHub/fielder/fielder/logs/fielder.server.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/klg/Documents/GItHub/fielder/fielder/logs/fielder.server.err.log</string>
+</dict>
+</plist>

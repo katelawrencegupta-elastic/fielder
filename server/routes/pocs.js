@@ -27,7 +27,14 @@ router.get("/", (req, res) => {
 
 router.get("/:id/commits", (req, res) => {
   const id = Number(req.params.id);
-  const rows = all("SELECT * FROM poc_commits WHERE poc_id = ? ORDER BY committed_at DESC", id);
+  let limit = Number(req.query.limit);
+  if (!Number.isFinite(limit) || limit <= 0) limit = 100;
+  limit = Math.min(Math.floor(limit), 500);
+  const rows = all(
+    "SELECT * FROM poc_commits WHERE poc_id = ? ORDER BY committed_at DESC LIMIT ?",
+    id,
+    limit
+  );
   res.json(rows.map(rowToCommit));
 });
 
@@ -44,12 +51,16 @@ router.patch("/:id", (req, res) => {
       : existing.notes_url;
   run(
     `UPDATE pocs SET account_key=?, title=?, status=?, start_date=?, target_demo_date=?, owner=?, notes_url=?, updated_at=? WHERE id=?`,
-    b.account ?? existing.account_key,
-    b.title ?? existing.title,
+    "account" in b ? b.account : existing.account_key,
+    "title" in b
+      ? b.title == null || String(b.title).trim() === ""
+        ? existing.folder_name
+        : String(b.title).trim()
+      : existing.title,
     b.status ?? existing.status,
     "startDate" in b ? b.startDate : existing.start_date,
     "targetDemoDate" in b ? b.targetDemoDate : existing.target_demo_date,
-    b.owner ?? existing.owner,
+    "owner" in b ? b.owner : existing.owner,
     notesUrl,
     now(),
     id
@@ -66,6 +77,10 @@ router.post("/sync", async (req, res) => {
     const results = await github.syncAll();
     res.json({ ok: true, synced: results.length, results });
   } catch (err) {
+    if (err.code === "SYNC_IN_PROGRESS") {
+      res.status(409).json({ ok: false, error: err.message });
+      return;
+    }
     console.error("POC sync failed:", err.message);
     res.status(502).json({ ok: false, error: err.message || String(err) });
   }

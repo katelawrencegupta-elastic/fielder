@@ -1,9 +1,10 @@
 // Idempotent seed: safe to run multiple times (INSERT OR IGNORE keeps any
 // edits made later through the app).
-const { db } = require("./client");
+const client = require("./client");
 const { ACCOUNTS, STAGES } = require("./seedData");
 
 function seed() {
+  const db = client.db;
   const insertAccount = db.prepare(`
     INSERT OR IGNORE INTO accounts (key, label, long_name, ae, bg, color, ae_bg, ae_color, active, sort_order)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)

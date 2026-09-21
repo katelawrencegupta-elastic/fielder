@@ -1,5 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { formatDueDate, pillColor, pillStyle, softPillFromAccent } from "../helpers.js";
+import { formatDueDate, pillColor, pillStyle, pocPillColor, softPillFromAccent } from "../helpers.js";
+
+export function PocPill({ poc }) {
+  if (!poc) return null;
+  const soft = pocPillColor(poc);
+  const name = poc.title || poc.folderName || `POC ${poc.id}`;
+  return (
+    <span
+      className="poc-pill"
+      style={pillStyle(soft.bg, soft.color)}
+      title={`Linked POC: ${name}`}
+    >
+      <span className="poc-pill-prefix">POC</span>
+      <span className="poc-pill-name">{name}</span>
+    </span>
+  );
+}
 
 export function AccountPill({ akey, accountMap, onChange }) {
   const a = accountMap[akey] || softPillFromAccent("#6a7a96");
@@ -158,6 +174,17 @@ export function LabelPill({ label, onRemove }) {
           ×
         </button>
       )}
+    </span>
+  );
+}
+
+export function MeetingLabels({ labels }) {
+  if (!labels?.length) return null;
+  return (
+    <span className="meeting-labels">
+      {labels.map((label) => (
+        <LabelPill key={label} label={label} />
+      ))}
     </span>
   );
 }

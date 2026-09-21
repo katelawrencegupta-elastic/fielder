@@ -12,6 +12,9 @@
     "dev:client": "npm run dev --workspace client",
     "build:client": "npm run build --workspace client",
     "migrate:fieldwork": "node server/scripts/import-fieldwork.js",
-    "seed": "node server/db/seed.js"
+    "seed": "node server/db/seed.js",
+    "fielder": "bash scripts/fielder-ctl.sh",
+    "menubar": "npm start --prefix menubar",
+    "menubar:install": "bash scripts/install-menubar.sh"
   }
 }

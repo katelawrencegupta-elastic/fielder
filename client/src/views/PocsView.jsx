@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
-import { isTcStage, POC_STATUSES, WORKSTREAMS } from "../helpers.js";
-import { AccountPill, StatusPill } from "../components/Pills.jsx";
+import { isTcStage, POC_STATUSES, WORKSTREAMS, pocPillColor } from "../helpers.js";
+import { AccountPill } from "../components/Pills.jsx";
 import KanbanView from "./KanbanView.jsx";
 
 const POC_SWIM_KEY = "fielder.pocSwimlaneMode";
@@ -130,14 +130,14 @@ export default function PocsView({
     if (!editing) return;
     const updated = await api.updatePoc(editing.id, {
       account: editing.account || null,
-      title: editing.title || null,
+      title: (editing.title || "").trim() || editing.folderName || null,
       status: editing.status || null,
       startDate: editing.startDate || null,
       targetDemoDate: editing.targetDemoDate || null,
       owner: editing.owner || null,
       notesUrl: editing.notesUrl || null,
     });
-    onPocsChange(pocs.map((p) => (p.id === updated.id ? updated : p)));
+    onPocsChange(pocs.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
     setEditing(null);
     flash?.("POC updated");
   }
@@ -285,39 +285,31 @@ export default function PocsView({
               : "All POCs are archived. Show archived POCs to view them."}
           </div>
         ) : (
-          <div className="poc-picker">
+          <div className="poc-picker" role="listbox" aria-label="POCs">
             {visiblePocs.map((poc) => {
               const active = selected?.id === poc.id;
               const count = taskCountByPoc[poc.id] || 0;
+              const colors = pocPillColor(poc);
+              const displayName = poc.title || poc.folderName || `POC #${poc.id}`;
               return (
                 <button
                   key={poc.id}
                   type="button"
-                  className={`poc-picker-card${active ? " active" : ""}${
+                  role="option"
+                  aria-selected={active}
+                  className={`poc-chip${active ? " is-active" : ""}${
                     poc.status === "archived" ? " is-archived" : ""
                   }`}
+                  style={{
+                    ["--poc-accent"]: colors.swatch,
+                    ["--poc-accent-bg"]: colors.bg,
+                  }}
+                  title={`${displayName} · ${count} task${count === 1 ? "" : "s"}`}
                   onClick={() => setSelectedId(poc.id)}
                 >
-                  <div className="poc-picker-title">{poc.title || poc.folderName}</div>
-                  <div className="poc-picker-meta">
-                    {poc.account && <AccountPill akey={poc.account} accountMap={accountMap} />}
-                    <StatusPill status={poc.status} />
-                    <span className="poc-picker-count">
-                      {count} task{count === 1 ? "" : "s"}
-                    </span>
-                    {poc.notesUrl ? (
-                      <a
-                        className="poc-picker-notes"
-                        href={poc.notesUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="Open notes doc"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Notes
-                      </a>
-                    ) : null}
-                  </div>
+                  <span className="poc-chip-swatch" aria-hidden />
+                  <span className="poc-chip-title">{displayName}</span>
+                  <span className="poc-chip-count">{count}</span>
                 </button>
               );
             })}
@@ -328,11 +320,26 @@ export default function PocsView({
           <div className="poc-board-header">
             <div>
               <div style={{ fontSize: 15, fontWeight: 650 }}>{selected.title || selected.folderName}</div>
-              <div style={{ fontSize: 12, color: "var(--color-text-dim)", marginTop: 2 }}>
-                {boardTaskCount} linked task{boardTaskCount === 1 ? "" : "s"}
-                {selected.owner ? ` · ${selected.owner}` : ""}
-                {(selected.startDate || selected.targetDemoDate) &&
-                  ` · ${selected.startDate || "—"} → ${selected.targetDemoDate || "—"}`}
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--color-text-dim)",
+                  marginTop: 2,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "4px 8px",
+                  alignItems: "center",
+                }}
+              >
+                {selected.account ? (
+                  <AccountPill akey={selected.account} accountMap={accountMap} />
+                ) : null}
+                <span>
+                  {boardTaskCount} linked task{boardTaskCount === 1 ? "" : "s"}
+                  {selected.owner ? ` · ${selected.owner}` : ""}
+                  {(selected.startDate || selected.targetDemoDate) &&
+                    ` · ${selected.startDate || "—"} → ${selected.targetDemoDate || "—"}`}
+                </span>
               </div>
             </div>
             <div className="poc-board-header-actions">

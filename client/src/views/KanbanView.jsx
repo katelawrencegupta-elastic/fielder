@@ -568,6 +568,11 @@ export default function KanbanView({
     }
   }
 
+  function expandCollapsedColumn(stageKey, isCollapsed) {
+    if (!isCollapsed) return;
+    toggleCollapsed(stageKey);
+  }
+
   function renderCollapseToggle(stageKey, isCollapsed) {
     return (
       <div className="kanban-col-toggle-col">
@@ -659,6 +664,8 @@ export default function KanbanView({
           <div
             key={stage.key}
             className={`kanban-col-head${isCollapsed ? " collapsed" : ""}`}
+            title={isCollapsed ? "Click to expand column" : undefined}
+            onClick={() => expandCollapsedColumn(stage.key, isCollapsed)}
           >
             {inner}
           </div>
@@ -674,6 +681,8 @@ export default function KanbanView({
               className={`kanban-col${isCollapsed ? " collapsed" : ""}${
                 colSnapshot.isDragging ? " col-dragging" : ""
               }`}
+              title={isCollapsed ? "Click to expand column" : undefined}
+              onClick={() => expandCollapsedColumn(stage.key, isCollapsed)}
             >
               <div className="kanban-col-header">
                 {renderCollapseToggle(stage.key, isCollapsed)}
@@ -882,6 +891,8 @@ export default function KanbanView({
                             className={`kanban-col-head${isCollapsed ? " collapsed" : ""}${
                               colSnapshot.isDragging ? " col-dragging" : ""
                             }`}
+                            title={isCollapsed ? "Click to expand column" : undefined}
+                            onClick={() => expandCollapsedColumn(stage.key, isCollapsed)}
                           >
                             <div className="kanban-col-header">
                               {renderCollapseToggle(stage.key, isCollapsed)}

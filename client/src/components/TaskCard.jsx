@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { dueDateStatus, normalizeWorkstream, pillStyle, softPillFromAccent } from "../helpers.js";
-import { AccountPill, DueDatePill, LabelPill } from "./Pills.jsx";
+import { dueDateStatus, normalizeWorkstream } from "../helpers.js";
+import { AccountPill, DueDatePill, LabelPill, PocPill } from "./Pills.jsx";
 
 const URL_RE = /https?:\/\/[^\s<>"']+/gi;
 
@@ -54,17 +54,6 @@ function TitleWithLinks({ title }) {
         )
       )}
     </>
-  );
-}
-
-function PocPill({ poc }) {
-  if (!poc) return null;
-  const soft = softPillFromAccent("#2f6fad");
-  const name = poc.title || poc.folderName || `POC ${poc.id}`;
-  return (
-    <span style={pillStyle(soft.bg, soft.color)} title={`Linked POC: ${name}`}>
-      POC · {name}
-    </span>
   );
 }
 

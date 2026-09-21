@@ -36,9 +36,13 @@ router.get("/", (req, res) => {
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  let limit = Number(req.query.limit);
+  if (!Number.isFinite(limit) || limit <= 0) limit = 2000;
+  limit = Math.min(Math.floor(limit), 5000);
   const rows = all(
-    `SELECT * FROM task_events ${where} ORDER BY created_at ASC, id ASC`,
-    ...params
+    `SELECT * FROM task_events ${where} ORDER BY created_at ASC, id ASC LIMIT ?`,
+    ...params,
+    limit
   );
   res.json(rows.map(rowToEvent));
 });

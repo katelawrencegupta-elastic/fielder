@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { DataSet, Timeline } from "vis-timeline/standalone";
 import "vis-timeline/styles/vis-timeline-graph2d.min.css";
 import { api } from "../api.js";
+import { pocPillColor } from "../helpers.js";
 
 function toDate(value, endOfDay = false) {
   if (!value) return null;
@@ -77,6 +78,10 @@ export default function TimelineView({ accountMap }) {
           end: end && start && end > start ? end : undefined,
           type: end && start && end > start ? "range" : "point",
           className: "poc-item",
+          style: (() => {
+            const c = pocPillColor(poc);
+            return `background-color: ${c.bg}; color: ${c.color}; border-color: ${c.swatch};`;
+          })(),
         });
       }
       for (const commit of data.commits || []) {
@@ -111,6 +116,10 @@ export default function TimelineView({ accountMap }) {
             end: end && start && end > start ? end : undefined,
             type: end && start && end > start ? "range" : "point",
             className: "poc-item",
+            style: (() => {
+              const c = pocPillColor(poc);
+              return `background-color: ${c.bg}; color: ${c.color}; border-color: ${c.swatch};`;
+            })(),
           });
         }
       }

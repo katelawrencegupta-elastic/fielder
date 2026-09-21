@@ -1,0 +1,8 @@
+GEAerospace_Observability — Fielder Kanban status
+Synced: 2026-08-12T16:48:54.394Z (from Fielder)
+POC id: 5
+
+TO DO (1)
+- Create POC Plan  [due 2026-08-14]
+
+Archived cards: 0 (omitted)

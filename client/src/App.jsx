@@ -12,32 +12,74 @@ import TaskDrawer from "./components/TaskDrawer.jsx";
 import KanbanView from "./views/KanbanView.jsx";
 import { isTcStage } from "./helpers.js";
 import PocsView from "./views/PocsView.jsx";
-import DemosView from "./views/DemosView.jsx";
-import TimelineView from "./views/TimelineView.jsx";
+import MeetingsView from "./views/MeetingsView.jsx";
 import ReportView from "./views/ReportView.jsx";
+import DailySummaryView from "./views/DailySummaryView.jsx";
 
 const TABS = [
   { key: "kanban", label: "Kanban" },
-  { key: "demos", label: "Demos & Workshops" },
+  { key: "daily", label: "Daily" },
   { key: "pocs", label: "POCs" },
-  { key: "timeline", label: "Timeline" },
+  { key: "meetings", label: "Meetings" },
   { key: "report", label: "Report" },
 ];
 
+const TAB_KEYS = new Set(TABS.map((t) => t.key));
+const TAB_STORAGE_KEY = "fielder.tab";
+const FILTERS_STORAGE_KEY = "fielder.filters";
+const LEGACY_DAILY_AE = "fielder.daily.ae";
+const LEGACY_REPORT_AE = "fielder.report.ae";
+const FOCUS_REFRESH_MS = 2000;
+
+const EMPTY_FILTERS = { ae: null, account: null, label: null, pocId: null };
+
+function loadStoredTab() {
+  try {
+    const raw = localStorage.getItem(TAB_STORAGE_KEY);
+    if (raw && TAB_KEYS.has(raw)) return raw;
+  } catch {
+    /* ignore */
+  }
+  return "daily";
+}
+
+function loadStoredFilters() {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        return {
+          ae: parsed.ae ?? null,
+          account: parsed.account ?? null,
+          label: parsed.label ?? null,
+          pocId: parsed.pocId ?? null,
+        };
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  // One-time migrate from Daily/Report session AE keys.
+  try {
+    const legacy =
+      sessionStorage.getItem(LEGACY_DAILY_AE) || sessionStorage.getItem(LEGACY_REPORT_AE);
+    if (legacy) return { ...EMPTY_FILTERS, ae: legacy };
+  } catch {
+    /* ignore */
+  }
+  return { ...EMPTY_FILTERS };
+}
+
 export default function App() {
-  const [tab, setTab] = useState("kanban");
+  const [tab, setTabState] = useState(loadStoredTab);
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState([]);
   const [stages, setStages] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [pocs, setPocs] = useState([]);
   const [allLabels, setAllLabels] = useState([]);
-  const [filters, setFilters] = useState({
-    ae: null,
-    account: null,
-    label: null,
-    pocId: null,
-  });
+  const [filters, setFiltersState] = useState(loadStoredFilters);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
   const [status, setStatus] = useState("");
@@ -46,6 +88,9 @@ export default function App() {
   const [snapsOpen, setSnapsOpen] = useState(false);
   const [snapshots, setSnapshots] = useState([]);
   const [newOpen, setNewOpen] = useState(false);
+  const [dataEpoch, setDataEpoch] = useState(0);
+  const [focusMeeting, setFocusMeeting] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [newTask, setNewTask] = useState({
     title: "",
     account: "other",
@@ -53,6 +98,38 @@ export default function App() {
     dueDate: "",
   });
   const snapRef = useRef(null);
+  const lastFocusRefreshRef = useRef(0);
+
+  const setTab = useCallback((next) => {
+    setTabState(next);
+    if (next !== "meetings") setFocusMeeting(null);
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const openMeetingPage = useCallback(
+    (hit) => {
+      if (!hit?.rel_path) return;
+      setFocusMeeting(hit);
+      setTab("meetings");
+    },
+    [setTab]
+  );
+
+  const setFilters = useCallback((next) => {
+    setFiltersState((prev) => {
+      const resolved = typeof next === "function" ? next(prev) : next;
+      try {
+        localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(resolved));
+      } catch {
+        /* ignore */
+      }
+      return resolved;
+    });
+  }, []);
 
   const accountMap = useMemo(() => buildAccountMap(accounts), [accounts]);
   const aeColors = useMemo(() => buildAeColors(accounts), [accounts]);
@@ -84,6 +161,24 @@ export default function App() {
     }));
   }, []);
 
+  const refreshAll = useCallback(
+    async ({ silent = false } = {}) => {
+      if (refreshing) return;
+      setRefreshing(true);
+      try {
+        await reload();
+        setDataEpoch((n) => n + 1);
+        if (!silent) flash("Refreshed");
+      } catch (err) {
+        console.error(err);
+        flash(err.message || "Refresh failed");
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [flash, reload, refreshing]
+  );
+
   useEffect(() => {
     reload()
       .catch((err) => {
@@ -93,6 +188,25 @@ export default function App() {
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    function maybeRefresh() {
+      if (document.visibilityState && document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastFocusRefreshRef.current < FOCUS_REFRESH_MS) return;
+      lastFocusRefreshRef.current = now;
+      refreshAll({ silent: true });
+    }
+    function onVisibility() {
+      if (document.visibilityState === "visible") maybeRefresh();
+    }
+    window.addEventListener("focus", maybeRefresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", maybeRefresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshAll]);
 
   useEffect(() => {
     if (!snapsOpen) return;
@@ -121,6 +235,7 @@ export default function App() {
       const items = JSON.parse(importText);
       const result = await api.importTasks(items);
       await reload();
+      setDataEpoch((n) => n + 1);
       setShowImport(false);
       setImportText("");
       flash(`Imported ${result.added} tasks`);
@@ -147,11 +262,12 @@ export default function App() {
   }
 
   async function restoreSnapshot(name) {
-    if (!window.confirm(`Restore ${name}? Restart the server afterward.`)) return;
+    if (!window.confirm(`Restore ${name}? This replaces the live database.`)) return;
     await api.restoreSnapshot(name);
-    flash("Restored — restart the server");
+    flash("Database restored");
     setSnapsOpen(false);
     await reload();
+    setDataEpoch((n) => n + 1);
   }
 
   async function createTask(e) {
@@ -199,6 +315,9 @@ export default function App() {
         </nav>
         <div className="header-actions">
           {status && <span className="status-flash">{status}</span>}
+          <button type="button" disabled={refreshing} onClick={() => refreshAll()}>
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
           {tab === "kanban" && (
             <>
               <button type="button" onClick={() => setShowArchive((v) => !v)}>
@@ -277,15 +396,19 @@ export default function App() {
             onOpenTask={setSelectedTask}
           />
         )}
-        {tab === "demos" && (
-          <DemosView
+        {tab === "daily" && (
+          <DailySummaryView
             tasks={tasks}
+            pocs={pocs}
             accounts={accountsSorted}
             accountMap={accountMap}
-            stages={stages}
-            onTasksChange={setTasks}
+            aes={aes}
+            aeColors={aeColors}
+            filters={filters}
+            onFiltersChange={setFilters}
+            dataEpoch={dataEpoch}
             onOpenTask={setSelectedTask}
-            flash={flash}
+            onOpenMeeting={openMeetingPage}
           />
         )}
         {tab === "pocs" && (
@@ -303,14 +426,36 @@ export default function App() {
             flash={flash}
           />
         )}
-        {tab === "timeline" && <TimelineView accountMap={accountMap} />}
+        {tab === "meetings" && (
+          <MeetingsView
+            accounts={accountsSorted}
+            accountMap={accountMap}
+            aes={aes}
+            aeColors={aeColors}
+            pocs={pocs}
+            stages={stages}
+            tasks={tasks}
+            filters={filters}
+            onFiltersChange={setFilters}
+            dataEpoch={dataEpoch}
+            onTasksChange={setTasks}
+            onAccountsChange={setAccounts}
+            flash={flash}
+            focusMeeting={focusMeeting}
+          />
+        )}
         {tab === "report" && (
           <ReportView
             tasks={tasks}
             pocs={pocs}
             accounts={accountsSorted}
             accountMap={accountMap}
+            aes={aes}
+            aeColors={aeColors}
             stages={stages}
+            filters={filters}
+            onFiltersChange={setFilters}
+            onOpenTask={setSelectedTask}
             flash={flash}
           />
         )}
