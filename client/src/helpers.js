@@ -4,6 +4,27 @@ export const AE_COLOR_FALLBACK = {
   "Timothy Webster (Tim)": { bg: "#f5eee3", color: "#8a5a20" },
 };
 
+/** Scrappy meeting-folder keys → Meetings rail / pill labels. */
+export const MEETING_ACCOUNT_LABELS = {
+  "1-1-with-tim": "tim-1:1",
+  "corey-s-pod": "corey-1:1",
+  "iko-1-1": "Iko-1:1",
+  "pete-1-1": "pete-1:1",
+};
+
+/** Meeting-folder accounts are Move targets, not Kanban board accounts. */
+export function isMeetingOnlyAccount(key) {
+  return Object.prototype.hasOwnProperty.call(MEETING_ACCOUNT_LABELS, String(key || ""));
+}
+
+/** Prefer curated meeting-folder labels, then account long/label, then the raw key. */
+export function displayAccountLabel(key, account) {
+  const k = String(key || account?.key || "");
+  if (MEETING_ACCOUNT_LABELS[k]) return MEETING_ACCOUNT_LABELS[k];
+  if (k === "unaligned") return "Unaligned";
+  return account?.long || account?.label || k || "—";
+}
+
 const LABEL_PALETTE = [
   { bg: "#f8efd9", color: "#8a5a10" },
   { bg: "#f8e3ef", color: "#9a3a6a" },

@@ -2,7 +2,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import TaskCard from "../components/TaskCard.jsx";
-import { isTcStage, normalizeWorkstream, replaceById, WORKSTREAMS } from "../helpers.js";
+import { isTcStage, normalizeWorkstream, replaceById, WORKSTREAMS, displayAccountLabel } from "../helpers.js";
 
 const COLLAPSED_KEY = "fielder.collapsedStages";
 const SWIM_KEY = "fielder.swimlaneMode";
@@ -194,11 +194,11 @@ export default function KanbanView({
         const a = accountMap[key];
         return {
           id: key,
-          label: a?.label || a?.long || key,
+          label: displayAccountLabel(key, a),
           color: a?.color || "#6a7a96",
           bg: a?.bg || "#1a1e28",
           ae: a?.ae || "",
-          sort: `${a?.ae || "zzz"}|${a?.label || key}`,
+          sort: `${a?.ae || "zzz"}|${displayAccountLabel(key, a)}`,
         };
       });
       list.sort((a, b) => a.sort.localeCompare(b.sort));
@@ -803,7 +803,7 @@ export default function KanbanView({
 
   return (
     <div
-      className={embedded ? "kanban-embedded" : "view-scroll"}
+      className={embedded ? "kanban-embedded" : "view-scroll kanban-view"}
       style={
         embedded
           ? { flex: 1, minHeight: 0, overflow: "auto", padding: "0 18px 14px" }

@@ -1,5 +1,7 @@
 /** Daily briefing helpers: meetings by account + To Do column tasks. */
 
+import { displayAccountLabel } from "../helpers.js";
+
 export const TODO_STAGE = "in_progress";
 
 export function meetingAccountKey(hit) {
@@ -210,14 +212,20 @@ export function catalogMeetingsByAccount(hits, accounts = []) {
     buckets.get(key).push(hit);
   }
   return [...buckets.entries()]
-    .map(([key, meetings]) => ({
-      key,
-      account: byKey.get(key) || {
+    .map(([key, meetings]) => {
+      const known = byKey.get(key);
+      const label = displayAccountLabel(key, known);
+      return {
         key,
-        label: key === "unaligned" ? "Unaligned" : key,
-      },
-      meetings: sortMeetingsNewestFirst(meetings),
-    }))
+        account: {
+          ...(known || {}),
+          key,
+          label,
+          long: known?.long || label,
+        },
+        meetings: sortMeetingsNewestFirst(meetings),
+      };
+    })
     .sort(
       (a, b) =>
         compareMeetingsNewestFirst(a.meetings[0], b.meetings[0]) || sortByAccountLabel(a, b)
@@ -322,8 +330,8 @@ export function meetingsForDay(hits, range) {
     .sort((a, b) => meetingMs(a) - meetingMs(b) || (a.rel_path || "").localeCompare(b.rel_path || ""));
 }
 
-/** Default Daily agenda length: selected day + the following six (a week). */
-export const AGENDA_DAYS = 7;
+/** Default Daily agenda length: selected day + the following day (today + tomorrow). */
+export const AGENDA_DAYS = 2;
 
 /** Recorded meetings whose calendar day falls in the agenda window. */
 export function meetingsInAgendaRange(hits, agendaRange) {
@@ -344,7 +352,7 @@ function ymdFromDate(d) {
 }
 
 /**
- * Selected local day 00:00 through +N calendar days (default one week).
+ * Selected local day 00:00 through +N calendar days (default today + tomorrow).
  * `days` lists each YMD in the window; `nextYmd` remains day+1 for labels.
  */
 export function getAgendaRange(anchorDate = new Date(), dayCount = AGENDA_DAYS) {

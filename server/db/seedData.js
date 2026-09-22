@@ -37,6 +37,12 @@ const ACCOUNTS = [
   { key: "workforce", label: "WorkForce", long: "WorkForce Software", ae: "Timothy Webster (Tim)", bg: "#201000", color: "#b87020", aeBg: "#2a2218", aeColor: "#dfb87a" },
   { key: "adp", label: "ADP", long: "ADP", ae: "Timothy Webster (Tim)", bg: "#301808", color: "#e08838", aeBg: "#2a2218", aeColor: "#dfb87a" },
   { key: "colgate", label: "Colgate", long: "Colgate-Palmolive", ae: "Timothy Webster (Tim)", bg: "#280800", color: "#e07020", aeBg: "#2a2218", aeColor: "#dfb87a" },
+  // Internal 1:1 meeting folders (Scrappy) — Move destinations on Meetings.
+  // Client treats these as meetingOnly (see MEETING_ACCOUNT_LABELS).
+  { key: "1-1-with-tim", label: "tim-1:1", long: "tim-1:1", ae: "Timothy Webster (Tim)", bg: "#2a2218", color: "#dfb87a", aeBg: "#2a2218", aeColor: "#dfb87a" },
+  { key: "corey-s-pod", label: "corey-1:1", long: "corey-1:1", ae: "Corey Fallarino", bg: "#1a2e1a", color: "#7acf9a", aeBg: "#1a2e1a", aeColor: "#7acf9a" },
+  { key: "iko-1-1", label: "Iko-1:1", long: "Iko-1:1", ae: null, bg: "#1a2430", color: "#6fa8c8", aeBg: null, aeColor: null },
+  { key: "pete-1-1", label: "pete-1:1", long: "pete-1:1", ae: "Peter Antoinette", bg: "#2a1a2e", color: "#c87adf", aeBg: "#2a1a2e", aeColor: "#c87adf" },
   // Internal / catch-all
   { key: "other", label: "Other", long: "Other", ae: null, bg: "#1a1e28", color: "#6a7a96", aeBg: null, aeColor: null },
   // Real accounts found in the migrated task history that were never in the

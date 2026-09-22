@@ -1,3 +1,5 @@
+import { isMeetingOnlyAccount } from "../helpers.js";
+
 export default function FilterBar({
   accounts,
   aes,
@@ -9,6 +11,7 @@ export default function FilterBar({
 }) {
   const { ae, account, label, pocId } = filters;
   const accountOptions = [...accounts]
+    .filter((a) => !isMeetingOnlyAccount(a.key))
     .filter((a) => !ae || a.ae === ae)
     .sort((a, b) =>
       (a.label || a.key || "").localeCompare(b.label || b.key || "", undefined, {

@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { formatDueDate, pillColor, pillStyle, pocPillColor, softPillFromAccent } from "../helpers.js";
+import {
+  displayAccountLabel,
+  formatDueDate,
+  isMeetingOnlyAccount,
+  pillColor,
+  pillStyle,
+  pocPillColor,
+  softPillFromAccent,
+} from "../helpers.js";
 
 export function PocPill({ poc }) {
   if (!poc) return null;
@@ -19,7 +27,7 @@ export function PocPill({ poc }) {
 
 export function AccountPill({ akey, accountMap, onChange }) {
   const a = accountMap[akey] || softPillFromAccent("#6a7a96");
-  const label = a.long || a.label || akey || "—";
+  const label = displayAccountLabel(akey, a);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -36,7 +44,9 @@ export function AccountPill({ akey, accountMap, onChange }) {
     return <span style={pillStyle(a.bg, a.color)}>{label}</span>;
   }
 
-  const options = Object.values(accountMap).sort((x, y) =>
+  const options = Object.values(accountMap)
+    .filter((opt) => !isMeetingOnlyAccount(opt.key))
+    .sort((x, y) =>
     (x.label || x.key || "").localeCompare(y.label || y.key || "", undefined, {
       sensitivity: "base",
     })

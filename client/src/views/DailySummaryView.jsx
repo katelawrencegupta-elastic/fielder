@@ -6,6 +6,7 @@ import { getDayRange, shiftRange } from "../report/weeklyStatus.js";
 import {
   formatEventWhen,
   formatMeetingStamp,
+  formatMeetingTime,
   getAgendaRange,
   groupTasksByAccount,
   meetingAccountKey,
@@ -64,13 +65,23 @@ function MeetingRow({ hit, selected, onOpen, showAccount = true, accountMap }) {
 }
 
 function CalendarEventRow({ event, selected, onOpen, accountMap, hasRecording = false }) {
-  const when = formatEventWhen(event);
+  const start = event?.allDay ? "All day" : formatMeetingTime(event?.start);
+  const end = event?.allDay ? "" : formatMeetingTime(event?.end);
+  const showEnd = Boolean(end && start && end !== start);
+  const location = String(event.location || "").trim();
+  const showLocation = location && !/^https?:\/\//i.test(location);
+  const timeLabel = showEnd ? `${start}–${end}` : start || "—";
+
   return (
     <div
-      className={`meeting-row daily-meeting-row${selected ? " is-active" : ""}`}
+      className={`daily-agenda-row${selected ? " is-active" : ""}${hasRecording ? " has-recording" : ""}`}
       role="button"
       tabIndex={0}
-      title={hasRecording ? "Open meeting summary" : "Open calendar event"}
+      title={
+        [event.title || "(No title)", timeLabel, showLocation ? location : ""]
+          .filter(Boolean)
+          .join(" · ")
+      }
       onClick={() => onOpen(event)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -79,28 +90,33 @@ function CalendarEventRow({ event, selected, onOpen, accountMap, hasRecording = 
         }
       }}
     >
-      <div className="daily-meeting-row-top">
-        <span className="daily-event-when">{when}</span>
-        {event.account ? (
-          <AccountPill akey={event.account} accountMap={accountMap} />
-        ) : (
-          <span className="report-item-meta">Unaligned</span>
-        )}
-        {event.meetUrl ? (
-          <a
-            className="daily-join-link"
-            href={event.meetUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            Join
-          </a>
-        ) : null}
+      <div className="daily-agenda-time" aria-label={timeLabel}>
+        <span className="daily-agenda-time-start">{start || "—"}</span>
+        {showEnd ? <span className="daily-agenda-time-end">{end}</span> : null}
       </div>
-      <div className="report-item-title">{event.title}</div>
-      {event.location ? <div className="meeting-row-snippet">{event.location}</div> : null}
+      <div className="daily-agenda-body">
+        <div className="daily-agenda-title">{event.title || "(No title)"}</div>
+        <div className="daily-agenda-meta">
+          {event.account ? (
+            <AccountPill akey={event.account} accountMap={accountMap} />
+          ) : (
+            <span className="daily-agenda-unaligned">Unaligned</span>
+          )}
+          {hasRecording ? <span className="daily-agenda-rec">Rec</span> : null}
+        </div>
+      </div>
+      {event.meetUrl ? (
+        <a
+          className="daily-join-link"
+          href={event.meetUrl}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          Join
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -144,8 +160,17 @@ export default function DailySummaryView({
 
   const todayRange = getDayRange(new Date());
   const isToday = range.startYmd === todayRange.startYmd;
+  // Selected day + the next day; rolls with the day navigator (and at midnight via effect below).
   const agendaRange = useMemo(() => getAgendaRange(range.start), [range.startYmd]);
-  const realTomorrowYmd = useMemo(() => getAgendaRange(new Date()).nextYmd, []);
+  const realTomorrowYmd = useMemo(
+    () => getAgendaRange(new Date()).nextYmd,
+    [todayRange.startYmd]
+  );
+
+  // When the calendar date rolls, snap back to today so the window stays relative.
+  useEffect(() => {
+    setRange(getDayRange(new Date()));
+  }, [todayRange.startYmd]);
 
   const visibleAccounts = useMemo(
     () => (aeFilter ? accounts.filter((a) => a.ae === aeFilter) : accounts),
@@ -284,23 +309,28 @@ export default function DailySummaryView({
         : `${agendaCount} on calendar · ${available.length} recorded`;
 
   function renderAgendaBucket(label, events) {
-    if (events.length === 0) return null;
     return (
-      <section className="daily-account-group">
-        <div className="daily-account-group-head">
-          <span className="report-account-name">{label}</span>
+      <section className="daily-agenda-day">
+        <div className="daily-agenda-day-label">
+          <span>{label}</span>
           <span className="daily-count">{events.length}</span>
         </div>
-        {events.map((event) => (
-          <CalendarEventRow
-            key={event.id}
-            event={event}
-            selected={selectedCalId === event.id}
-            onOpen={openCalendarEvent}
-            accountMap={accountMap}
-            hasRecording={Boolean(recordedHitForCalendarEvent(event, filteredHits))}
-          />
-        ))}
+        {events.length === 0 ? (
+          <div className="daily-agenda-empty">No meetings</div>
+        ) : (
+          <div className="daily-agenda-list">
+            {events.map((event) => (
+              <CalendarEventRow
+                key={event.id}
+                event={event}
+                selected={selectedCalId === event.id}
+                onOpen={openCalendarEvent}
+                accountMap={accountMap}
+                hasRecording={Boolean(recordedHitForCalendarEvent(event, filteredHits))}
+              />
+            ))}
+          </div>
+        )}
       </section>
     );
   }
@@ -375,29 +405,31 @@ export default function DailySummaryView({
       </p>
 
       <div className="daily-grid">
-        <section className="entity-card daily-col">
+        <section className="entity-card daily-col daily-col-agenda">
           <div className="daily-col-head">
-            <h3>Upcoming Meetings</h3>
+            <h3>Today & Tomorrow</h3>
             <span className="daily-count">{agendaCount}</span>
           </div>
+          <div className="daily-agenda">
           {calStatus === "loading" && <div className="meetings-empty">Loading calendar…</div>}
           {calStatus === "error" && (
             <div className="meetings-empty">{calError || "Could not load calendar meetings."}</div>
           )}
-          {calStatus === "ok" && agendaCount === 0 && (
-            <div className="meetings-empty">
-              {calConfigured
-                ? "No calendar meetings in this window."
-                : "No live calendar. Set up Spark CLI (Spark Desktop → Settings → AI Agents → Setup CLI) or add CALENDAR_ICS_URL to .env, then restart the server."}
+          {calStatus === "ok" && !calConfigured && agendaCount === 0 && (
+            <div className="meetings-empty daily-agenda-setup">
+              No live calendar. Set up Spark CLI (Spark Desktop → Settings → AI Agents → Setup CLI) or add
+              CALENDAR_ICS_URL to .env, then restart the server.
             </div>
           )}
           {calStatus === "ok" &&
+            (calConfigured || agendaCount > 0) &&
             (agenda.days || []).map((bucket) =>
               renderAgendaBucket(
                 dayHeading(bucket.ymd, todayRange.startYmd, realTomorrowYmd),
                 bucket.events
               )
             )}
+          </div>
         </section>
 
         <section className="entity-card daily-col">

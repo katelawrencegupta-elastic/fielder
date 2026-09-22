@@ -4,6 +4,7 @@ import {
   buildAccountMap,
   buildAeColors,
   buildAllAes,
+  isMeetingOnlyAccount,
   replaceById,
   sortAccounts,
 } from "./helpers.js";
@@ -17,10 +18,10 @@ import ReportView from "./views/ReportView.jsx";
 import DailySummaryView from "./views/DailySummaryView.jsx";
 
 const TABS = [
-  { key: "kanban", label: "Kanban" },
   { key: "daily", label: "Daily" },
-  { key: "pocs", label: "POCs" },
   { key: "meetings", label: "Meetings" },
+  { key: "kanban", label: "Kanban" },
+  { key: "pocs", label: "POCs" },
   { key: "report", label: "Report" },
 ];
 
@@ -135,6 +136,10 @@ export default function App() {
   const aeColors = useMemo(() => buildAeColors(accounts), [accounts]);
   const aes = useMemo(() => buildAllAes(accounts), [accounts]);
   const accountsSorted = useMemo(() => sortAccounts(accounts), [accounts]);
+  const boardAccounts = useMemo(
+    () => accountsSorted.filter((a) => !isMeetingOnlyAccount(a.key)),
+    [accountsSorted]
+  );
 
   const flash = useCallback((msg, ms = 2500) => {
     setStatus(msg);
@@ -157,7 +162,10 @@ export default function App() {
     setNewTask((nt) => ({
       ...nt,
       stage: nt.stage || s[0]?.key || "backlog",
-      account: nt.account || a[0]?.key || "other",
+      account:
+        nt.account && !isMeetingOnlyAccount(nt.account)
+          ? nt.account
+          : a.find((x) => !isMeetingOnlyAccount(x.key))?.key || a[0]?.key || "other",
     }));
   }, []);
 
@@ -178,6 +186,11 @@ export default function App() {
     },
     [flash, reload, refreshing]
   );
+
+  useEffect(() => {
+    if (!isMeetingOnlyAccount(filters.account)) return;
+    setFilters((prev) => ({ ...prev, account: null }));
+  }, [filters.account, setFilters]);
 
   useEffect(() => {
     reload()
@@ -370,7 +383,7 @@ export default function App() {
 
       {tab === "kanban" && (
         <FilterBar
-          accounts={accountsSorted}
+          accounts={boardAccounts}
           aes={aes}
           aeColors={aeColors}
           allLabels={allLabels}
@@ -501,7 +514,7 @@ export default function App() {
                   value={newTask.account}
                   onChange={(e) => setNewTask({ ...newTask, account: e.target.value })}
                 >
-                  {accountsSorted.map((a) => (
+                  {boardAccounts.map((a) => (
                     <option key={a.key} value={a.key}>
                       {a.label}
                     </option>

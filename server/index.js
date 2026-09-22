@@ -64,6 +64,15 @@ const server = app.listen(PORT, HOST, () => {
   startSnapshotInterval();
 });
 
+server.on("error", (err) => {
+  if (err && err.code === "EADDRINUSE") {
+    console.error(`Port ${HOST}:${PORT} already in use — is Fielder already running?`);
+    process.exit(1);
+  }
+  console.error("Fielder server failed to listen:", err);
+  process.exit(1);
+});
+
 let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;

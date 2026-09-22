@@ -147,6 +147,39 @@ describe("catalogMeetingsByAccount", () => {
     assert.equal(catalog[0].meetings[1].started_at, "2026-09-04T16:16:19");
     assert.equal(catalog[2].account.label, "mystery");
   });
+
+  it("renames curated meeting-folder keys for display", () => {
+    const catalog = catalogMeetingsByAccount(
+      [
+        {
+          account: "1-1-with-tim",
+          rel_path: "1-1-with-tim/2026-09-21T15-29-27.txt",
+          started_at: "2026-09-21T15:29:27",
+        },
+        {
+          account: "corey-s-pod",
+          rel_path: "corey-s-pod/2026-09-20T10-00-00.txt",
+          started_at: "2026-09-20T10:00:00",
+        },
+        {
+          account: "iko-1-1",
+          rel_path: "iko-1-1/2026-09-10T16-38-48.txt",
+          started_at: "2026-09-10T16:38:48",
+        },
+        {
+          account: "pete-1-1",
+          rel_path: "pete-1-1/2026-09-09T12-00-00.txt",
+          started_at: "2026-09-09T12:00:00",
+        },
+      ],
+      accounts
+    );
+    const byKey = Object.fromEntries(catalog.map((g) => [g.key, g.account.label]));
+    assert.equal(byKey["1-1-with-tim"], "tim-1:1");
+    assert.equal(byKey["corey-s-pod"], "corey-1:1");
+    assert.equal(byKey["iko-1-1"], "Iko-1:1");
+    assert.equal(byKey["pete-1-1"], "pete-1:1");
+  });
 });
 
 describe("groupHitsByDay", () => {
@@ -286,23 +319,15 @@ describe("groupTasksByAccount", () => {
 });
 
 describe("getAgendaRange", () => {
-  it("covers the selected local day plus the following week (seven calendar days)", async () => {
+  it("covers the selected local day plus tomorrow (two calendar days)", async () => {
     const { getAgendaRange, splitAgendaDays, AGENDA_DAYS } = await import("./report/dailySummary.js");
     const range = getAgendaRange(new Date(2026, 8, 8, 18, 35, 0));
-    assert.equal(AGENDA_DAYS, 7);
+    assert.equal(AGENDA_DAYS, 2);
     assert.equal(range.startYmd, "2026-09-08");
     assert.equal(range.nextYmd, "2026-09-09");
-    assert.equal(range.dayCount, 7);
-    assert.deepEqual(range.days, [
-      "2026-09-08",
-      "2026-09-09",
-      "2026-09-10",
-      "2026-09-11",
-      "2026-09-12",
-      "2026-09-13",
-      "2026-09-14",
-    ]);
-    assert.equal(range.endMs - range.startMs, 7 * 24 * 60 * 60 * 1000);
+    assert.equal(range.dayCount, 2);
+    assert.deepEqual(range.days, ["2026-09-08", "2026-09-09"]);
+    assert.equal(range.endMs - range.startMs, 2 * 24 * 60 * 60 * 1000);
     const { days, today, tomorrow } = splitAgendaDays(
       [
         { title: "Morning", start: "2026-09-08T14:00:00.000Z" },
@@ -320,10 +345,7 @@ describe("getAgendaRange", () => {
       tomorrow.map((e) => e.title),
       ["Next day"]
     );
-    assert.deepEqual(
-      days.find((d) => d.ymd === "2026-09-10").events.map((e) => e.title),
-      ["Later"]
-    );
+    assert.equal(days.find((d) => d.ymd === "2026-09-10"), undefined);
     assert.equal(days.find((d) => d.ymd === "2026-09-15"), undefined);
   });
 });
