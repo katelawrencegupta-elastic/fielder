@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   followUpKey,
   followUpToTaskBody,
+  isActionableFollowUp,
   isFollowUpOnBoard,
   loadClearedFollowUpKeys,
   normalizeFollowUpTitle,
@@ -59,6 +60,37 @@ describe("isFollowUpOnBoard", () => {
     assert.equal(isFollowUpOnBoard(item, tasks, { account: "travelers" }), false);
     assert.equal(isFollowUpOnBoard(item, tasks, null), false);
     assert.equal(normalizeFollowUpTitle("  a   b "), "a b");
+  });
+});
+
+describe("isActionableFollowUp", () => {
+  it("keeps concrete account actions", () => {
+    assert.equal(isActionableFollowUp(item), true);
+  });
+
+  it("drops live-captions and vague attendee lines", () => {
+    assert.equal(
+      isActionableFollowUp({
+        ...item,
+        account: "live-captions",
+        text: "Send an update to the team",
+      }),
+      false
+    );
+    assert.equal(
+      isActionableFollowUp({
+        ...item,
+        text: "Attendees to review and discuss further.",
+      }),
+      false
+    );
+    assert.equal(
+      isActionableFollowUp({
+        ...item,
+        text: "Schedule a follow-up meeting to discuss next steps.",
+      }),
+      false
+    );
   });
 });
 

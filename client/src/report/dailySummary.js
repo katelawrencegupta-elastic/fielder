@@ -106,7 +106,9 @@ export function formatMeetingDay(ymd) {
 }
 
 const SUMMARY_HEADING = /^(?:#{1,6}\s+)?(?:\*{1,2}|_{1,2})?\s*(summary|decisions?|follow[\s-]*ups?)\s*(?:\*{1,2}|_{1,2})?\s*$/i;
-const SUMMARY_MAX = 900;
+const SUMMARY_MAX = 250000;
+const SUMMARY_EXCERPT_MAX = 720;
+const EMPTY_SECTION = /^(?:[-*]\s*)?(none\.?|n\/a)\s*$/i;
 
 function clipSummary(text, max = SUMMARY_MAX) {
   const compact = String(text || "").trim();
@@ -121,10 +123,9 @@ function notesWithoutExcerpt(notes) {
   return (cut >= 0 ? text.slice(0, cut) : text).trim();
 }
 
-/** Pull the Summary section from meeting notes; ignore transcript excerpts. */
-export function extractNotesSummary(notes, { maxChars = SUMMARY_MAX } = {}) {
+function parseNoteSections(notes) {
   const body = notesWithoutExcerpt(notes);
-  if (!body) return "";
+  if (!body) return [];
   const sections = [];
   let current = { kind: "notes", lines: [] };
   for (const line of body.split(/\r?\n/)) {
@@ -143,17 +144,42 @@ export function extractNotesSummary(notes, { maxChars = SUMMARY_MAX } = {}) {
     current.lines.push(line);
   }
   sections.push(current);
-  const parsed = sections
+  return sections
     .map((section) => ({ kind: section.kind, body: section.lines.join("\n").trim() }))
     .filter((section) => section.body);
+}
+
+/** Pull the Summary section from meeting notes; ignore transcript excerpts. */
+export function extractNotesSummary(notes, { maxChars = SUMMARY_MAX } = {}) {
+  const parsed = parseNoteSections(notes);
+  if (!parsed.length) return "";
   const summary = parsed.find((section) => section.kind === "summary");
   if (summary) return clipSummary(summary.body, maxChars);
   const notesSection = parsed.find((section) => section.kind === "notes");
-  return clipSummary(notesSection?.body || body, maxChars);
+  return clipSummary(notesSection?.body || "", maxChars);
 }
 
-export function meetingCallSummary(hit, notes) {
-  return extractNotesSummary(notes) || clipSummary(hit?.snippet || "", SUMMARY_MAX);
+/** Full briefing for the Meetings reader: Summary plus Decisions. */
+export function meetingCallSummary(hit, notes, { maxChars = SUMMARY_MAX } = {}) {
+  const parsed = parseNoteSections(notes);
+  const parts = [];
+  const summary = parsed.find((section) => section.kind === "summary")?.body;
+  const decisions = parsed.find((section) => section.kind === "decisions")?.body;
+  const notesSection = parsed.find((section) => section.kind === "notes")?.body;
+  // Indexed notes often arrive as section bodies with no ## Summary heading.
+  // Use that full recap instead of the 240-char search snippet.
+  if (summary) parts.push(summary);
+  else if (notesSection) parts.push(notesSection);
+  if (decisions && !EMPTY_SECTION.test(decisions.trim())) {
+    parts.push(`Decisions\n${decisions}`);
+  }
+  if (parts.length) return clipSummary(parts.join("\n\n"), maxChars);
+  return clipSummary(String(hit?.summary || hit?.snippet || ""), maxChars);
+}
+
+/** Longer list excerpt so catalog rows show more than a one-line topic. */
+export function meetingListSummary(hit, { maxChars = SUMMARY_EXCERPT_MAX } = {}) {
+  return clipSummary(String(hit?.summary || hit?.snippet || ""), maxChars);
 }
 
 function clipTopic(text, maxChars = 88) {
@@ -333,6 +359,12 @@ export function meetingsForDay(hits, range) {
 /** Default Daily agenda length: selected day + the following day (today + tomorrow). */
 export const AGENDA_DAYS = 2;
 
+/**
+ * How many prior calendar days of Scrappy notes to keep in Available meetings.
+ * Calendar stays today+tomorrow; recordings often land a day late or are reviewed next morning.
+ */
+export const AVAILABLE_LOOKBACK_DAYS = 7;
+
 /** Recorded meetings whose calendar day falls in the agenda window. */
 export function meetingsInAgendaRange(hits, agendaRange) {
   if (!agendaRange) return [];
@@ -341,6 +373,34 @@ export function meetingsInAgendaRange(hits, agendaRange) {
       (ymd) => ymd && ymd !== "unknown"
     )
   );
+  return (hits || []).filter((hit) => allowed.has(meetingYmd(hit)));
+}
+
+/**
+ * Recorded meetings for the Daily "Available" column: agenda window plus a lookback
+ * so yesterday's notes still appear when the calendar has rolled forward.
+ */
+export function meetingsInAvailableRange(
+  hits,
+  agendaRange,
+  lookbackDays = AVAILABLE_LOOKBACK_DAYS
+) {
+  if (!agendaRange) return [];
+  const lookback = Math.max(0, Number(lookbackDays) || 0);
+  const allowed = new Set(
+    (agendaRange.days || [agendaRange.startYmd, agendaRange.nextYmd]).filter(
+      (ymd) => ymd && ymd !== "unknown"
+    )
+  );
+  if (lookback > 0 && agendaRange.start) {
+    const cursor = new Date(agendaRange.start);
+    cursor.setHours(0, 0, 0, 0);
+    for (let i = 1; i <= lookback; i += 1) {
+      const d = new Date(cursor);
+      d.setDate(d.getDate() - i);
+      allowed.add(ymdFromDate(d));
+    }
+  }
   return (hits || []).filter((hit) => allowed.has(meetingYmd(hit)));
 }
 

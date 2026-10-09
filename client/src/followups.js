@@ -1,5 +1,26 @@
 const TITLE_MAX = 200;
 
+/** Scrappy folders that produce caption/junk follow-ups, not account work. */
+const NOISE_ACCOUNT_RE =
+  /^(live-captions|post-mortem|captions|transcripts?|misc|unassigned)(-|$)/i;
+
+/** Vague / meta lines that are almost never worth a Kanban card. */
+const NOISE_TEXT_RE = [
+  /^me:\s*/i,
+  /\battendee\s*\d*\b/i,
+  /\bschedule (a |another )?(follow[- ]?up|sync|call|meeting)\b/i,
+  /\b(continue|keep) (the |this )?(discussion|conversation|thread)\b/i,
+  /\battendees? (to|will|should)\b/i,
+  /\b(thank you|thanks for)\b/i,
+  /\b(no (action|follow[- ]?ups?)|none|n\/a)\b/i,
+  /\bput together estimates\b/i,
+  /\bcome back with (them|it)\b/i,
+];
+
+/** Require at least one concrete action cue. */
+const ACTION_HINT_RE =
+  /\b(send|email|schedule|confirm|share|update|create|follow.?up|call|reach|provide|prepare|draft|review|check|align|book|invite|fix|open|close|ship|merge|deploy|escalate|migrate|clarify|investigate|coordinate|complete|execute|walk through|pass|get|determine|ensure|decide|help|take a look|look into|audit|trigger|request|cover|arrange|prioritize|secure|propose|notify|use|find|set up|parse)\b/i;
+
 export function normalizeFollowUpTitle(text) {
   return String(text || "").trim().replace(/\s+/g, " ");
 }
@@ -7,6 +28,26 @@ export function normalizeFollowUpTitle(text) {
 export function followUpKey(item) {
   const path = String(item?.rel_path || "").trim();
   return `${path}\0${normalizeFollowUpTitle(item?.text)}`.toLowerCase();
+}
+
+export function isNoiseFollowUpAccount(account) {
+  const key = String(account || "").trim();
+  if (!key) return true;
+  return NOISE_ACCOUNT_RE.test(key);
+}
+
+/** Drop vague, meta, or non-actionable follow-up lines. */
+export function isActionableFollowUp(item) {
+  const text = normalizeFollowUpTitle(item?.text);
+  if (!text) return false;
+  if (text.length < 12 || text.length > 220) return false;
+  if ((text.match(/•/g) || []).length >= 1) return false; // concatenated multi-bullets
+  if (isNoiseFollowUpAccount(item?.account)) return false;
+  for (const re of NOISE_TEXT_RE) {
+    if (re.test(text)) return false;
+  }
+  if (!ACTION_HINT_RE.test(text)) return false;
+  return true;
 }
 
 export function followUpToTaskBody(
@@ -84,7 +125,9 @@ export function withClearedFollowUps(keys, items) {
 
 export function openFollowUps(items, clearedKeys, limit) {
   const cleared = new Set(clearedKeys || []);
-  const open = (items || []).filter((item) => !cleared.has(followUpKey(item)));
+  const open = (items || []).filter(
+    (item) => isActionableFollowUp(item) && !cleared.has(followUpKey(item))
+  );
   if (limit == null || limit < 0) return open;
   return open.slice(0, limit);
 }

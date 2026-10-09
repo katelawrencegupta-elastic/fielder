@@ -193,6 +193,12 @@ export default function App() {
   }, [filters.account, setFilters]);
 
   useEffect(() => {
+    if (!filters.ae) return;
+    if (aes.includes(filters.ae)) return;
+    setFilters((prev) => ({ ...prev, ae: null }));
+  }, [filters.ae, aes, setFilters]);
+
+  useEffect(() => {
     reload()
       .catch((err) => {
         console.error(err);

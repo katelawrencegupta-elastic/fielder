@@ -5,6 +5,7 @@ import MeetingReaderActions from "./MeetingReaderActions.jsx";
 import { MeetingLabels } from "./Pills.jsx";
 import {
   meetingListLabels,
+  meetingListSummary,
   meetingTopic,
   sortMeetingsNewestFirst,
 } from "../report/dailySummary.js";
@@ -425,8 +426,9 @@ export default function MeetingsPanel({
             </div>
             {meetingTopic(hit) ? (
               <div className="report-item-title">{meetingTopic(hit)}</div>
-            ) : hit.snippet ? (
-              <div className="meeting-row-snippet">{hit.snippet}</div>
+            ) : null}
+            {meetingListSummary(hit) ? (
+              <div className="meeting-row-snippet">{meetingListSummary(hit)}</div>
             ) : null}
             <MeetingLabels labels={meetingListLabels(hit)} />
           </button>

@@ -1,7 +1,7 @@
 const express = require("express");
 const { all } = require("../db/helpers");
 const { rowToAccount } = require("../db/serializers");
-const { syncFromFieldwork } = require("../services/accountsSync");
+const { syncAccounts } = require("../services/accountsSync");
 
 const router = express.Router();
 
@@ -10,13 +10,22 @@ router.get("/", (req, res) => {
   res.json(rows.map(rowToAccount));
 });
 
-// Reconciles fielder's account list against fieldwork's live-synced accounts
-// cache (additive only — never removes or renames an existing account).
-router.post("/sync", (req, res) => {
-  const result = syncFromFieldwork();
-  if (!result.ok) return res.status(404).json(result);
-  const rows = all("SELECT * FROM accounts WHERE active = 1 ORDER BY label COLLATE NOCASE ASC");
-  res.json({ ...result, accounts: rows.map(rowToAccount) });
+// Reconciles fielder's account list against the shared Google Sheet
+// (additive — never removes an existing account; AE follows the sheet).
+router.post("/sync", async (req, res) => {
+  try {
+    const result = await syncAccounts();
+    if (!result.ok) return res.status(404).json(result);
+    const rows = all("SELECT * FROM accounts WHERE active = 1 ORDER BY label COLLATE NOCASE ASC");
+    res.json({ ...result, accounts: rows.map(rowToAccount) });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      reason: err.message || "Account sync failed",
+      added: [],
+      updated: [],
+    });
+  }
 });
 
 module.exports = router;

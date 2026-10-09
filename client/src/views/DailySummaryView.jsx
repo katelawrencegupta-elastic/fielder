@@ -11,9 +11,10 @@ import {
   groupTasksByAccount,
   meetingAccountKey,
   meetingListLabels,
+  meetingListSummary,
   meetingPocName,
   meetingTopic,
-  meetingsInAgendaRange,
+  meetingsInAvailableRange,
   recordedHitForCalendarEvent,
   splitAgendaDays,
   todoTasks,
@@ -38,6 +39,7 @@ function MeetingRow({ hit, selected, onOpen, showAccount = true, accountMap }) {
   const poc = meetingPocName(hit);
   const topic = meetingTopic(hit);
   const labels = meetingListLabels(hit);
+  const excerpt = meetingListSummary(hit);
   const bits = [formatMeetingStamp(hit.started_at), poc].filter(Boolean);
 
   return (
@@ -59,7 +61,7 @@ function MeetingRow({ hit, selected, onOpen, showAccount = true, accountMap }) {
       </div>
       {topic ? <div className="report-item-title">{topic}</div> : null}
       {labels.length ? <MeetingLabels labels={labels} /> : null}
-      {!topic && hit.snippet ? <div className="meeting-row-snippet">{hit.snippet}</div> : null}
+      {excerpt ? <div className="meeting-row-snippet">{excerpt}</div> : null}
     </button>
   );
 }
@@ -272,7 +274,7 @@ export default function DailySummaryView({
   );
 
   const available = useMemo(() => {
-    const inWindow = meetingsInAgendaRange(filteredHits, agendaRange);
+    const inWindow = meetingsInAvailableRange(filteredHits, agendaRange);
     return [...inWindow].sort(
       (a, b) =>
         (b.started_at || "").localeCompare(a.started_at || "") ||
@@ -497,7 +499,7 @@ export default function DailySummaryView({
             </div>
           )}
           {status === "ok" && available.length === 0 && (
-            <div className="meetings-empty">No recorded meetings in this window.</div>
+            <div className="meetings-empty">No recent recorded meetings.</div>
           )}
           {status === "ok" &&
             available.map((hit) => (

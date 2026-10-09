@@ -12,9 +12,11 @@ import {
   meetingAccountKey,
   meetingCallSummary,
   meetingListLabels,
+  meetingListSummary,
   meetingTopic,
   meetingsForDay,
   meetingsInAgendaRange,
+  meetingsInAvailableRange,
   recordedHitForCalendarEvent,
   todoTasks,
 } from "./report/dailySummary.js";
@@ -107,6 +109,61 @@ describe("extractNotesSummary", () => {
       meetingCallSummary({ snippet: "Indexed blurb." }, ""),
       "Indexed blurb."
     );
+  });
+
+  it("uses heading-less indexed notes instead of the search snippet", () => {
+    const notes = Array.from(
+      { length: 40 },
+      (_, i) => `- Point ${String(i).padStart(2, "0")} about ingest and alerts.`
+    ).join("\n");
+    const briefing = meetingCallSummary({ snippet: "tiny snippet…" }, notes);
+    assert.match(briefing, /Point 39/);
+    assert.doesNotMatch(briefing, /tiny snippet/);
+  });
+
+  it("includes decisions in the call briefing", () => {
+    const notes = [
+      "## Summary",
+      "Covered architecture and next steps for ingest.",
+      "",
+      "## Decisions",
+      "- Dual-feed stays on.",
+      "- Skip the extra cluster until Friday.",
+      "",
+      "## Follow-ups",
+      "- Send the recap",
+    ].join("\n");
+    const briefing = meetingCallSummary({}, notes);
+    assert.match(briefing, /Covered architecture/);
+    assert.match(briefing, /Dual-feed stays on/);
+    assert.doesNotMatch(briefing, /Send the recap/);
+  });
+
+  it("keeps a longer list excerpt than the topic line", () => {
+    const snippet =
+      "Meeting discussion centered around observability concerns, specifically debug exporter issues and budget concerns. Attendees discussed potential solutions.";
+    const excerpt = meetingListSummary({ snippet });
+    assert.ok(excerpt.length > 88);
+    assert.match(excerpt, /debug exporter/);
+  });
+
+  it("prefers the summary field and keeps a long catalog excerpt", () => {
+    const summary = Array.from({ length: 80 }, (_, i) => `Point ${i} about ingest and alerts.`).join(" ");
+    const excerpt = meetingListSummary({ summary, snippet: "tiny snippet" });
+    assert.match(excerpt, /Point 0 about ingest/);
+    assert.doesNotMatch(excerpt, /tiny snippet/);
+    assert.ok(excerpt.length > 240);
+    assert.ok(excerpt.length <= 720 + 1);
+  });
+
+  it("keeps a long call recap in the reader instead of clipping it", () => {
+    const summary = Array.from(
+      { length: 400 },
+      (_, i) => `- Beat ${String(i).padStart(3, "0")} about the customer POC scope.`
+    ).join("\n");
+    const briefing = meetingCallSummary({}, `## Summary\n${summary}\n`);
+    assert.match(briefing, /Beat 399/);
+    assert.doesNotMatch(briefing, /…$/);
   });
 });
 
@@ -257,6 +314,39 @@ describe("meetingsInAgendaRange", () => {
         "2026-09-09T10:00:00",
         "2026-09-10T10:00:00",
       ].sort()
+    );
+  });
+});
+
+describe("meetingsInAvailableRange", () => {
+  it("includes agenda days plus a lookback so yesterday still shows", () => {
+    const agenda = {
+      start: new Date(2026, 9, 9, 0, 0, 0, 0), // Oct 9
+      startYmd: "2026-10-09",
+      nextYmd: "2026-10-10",
+      days: ["2026-10-09", "2026-10-10"],
+    };
+    const windowHits = [
+      {
+        rel_path: "blackstone/2026-10-08T15-00-04.txt",
+        account: "blackstone",
+        started_at: "2026-10-08T15:00:00",
+      },
+      {
+        rel_path: "travelers/2026-10-09T10-00-00.txt",
+        account: "travelers",
+        started_at: "2026-10-09T10:00:00",
+      },
+      {
+        rel_path: "old/2026-09-30T10-00-00.txt",
+        account: "old",
+        started_at: "2026-09-30T10:00:00",
+      },
+    ];
+    const found = meetingsInAvailableRange(windowHits, agenda, 7);
+    assert.deepEqual(
+      found.map((h) => h.started_at).sort(),
+      ["2026-10-08T15:00:00", "2026-10-09T10:00:00"].sort()
     );
   });
 });
