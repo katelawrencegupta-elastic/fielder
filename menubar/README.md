@@ -5,7 +5,7 @@ Tray controller so Fielder runs in the background without Cursor.
 ## Install
 
 ```bash
-cd /Users/klg/Documents/GItHub/fielder/fielder
+cd /path/to/fielder
 npm run menubar:install
 ```
 

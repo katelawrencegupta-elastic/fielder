@@ -1,10 +1,9 @@
-// Syncs Fielder accounts from the shared Google Sheet
-// https://docs.google.com/spreadsheets/d/1c0nleBeyOIth4lj3N71Zga69Sq324DgvlzmrDtYhhf8
+// Syncs Fielder accounts from a Google Sheet and/or local CSV.
 //
 // Sources (first that works wins):
-//   1. Live CSV export of the sheet (needs "Anyone with the link can view")
-//   2. Local drop: server/data/accounts-sheet.csv (File → Download → CSV)
-//   3. Legacy fieldwork.db accounts_cache (if present)
+//   1. Live CSV export of the sheet (ACCOUNTS_SHEET_ID / _URL / _CSV_URL)
+//   2. Local drop: server/data/accounts-sheet.csv (or ACCOUNTS_SHEET_CSV)
+//   3. Legacy fieldwork.db accounts_cache when FIELDWORK_DB_PATH is set
 //
 // Additive/non-destructive for rows:
 //   - existing accounts are never removed
@@ -17,21 +16,21 @@ const { DatabaseSync } = require("node:sqlite");
 const { all, run } = require("../db/helpers");
 const { normalizeAccountKey } = require("../db/accountAliases");
 
-const SPREADSHEET_ID =
-  process.env.ACCOUNTS_SHEET_ID || "1c0nleBeyOIth4lj3N71Zga69Sq324DgvlzmrDtYhhf8";
+const SPREADSHEET_ID = String(process.env.ACCOUNTS_SHEET_ID || "").trim();
 const ACCOUNTS_SHEET_URL =
-  process.env.ACCOUNTS_SHEET_URL ||
-  `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit?usp=sharing`;
+  String(process.env.ACCOUNTS_SHEET_URL || "").trim() ||
+  (SPREADSHEET_ID
+    ? `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit?usp=sharing`
+    : "");
 const ACCOUNTS_SHEET_CSV_URL =
-  process.env.ACCOUNTS_SHEET_CSV_URL ||
-  `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
-const LOCAL_SHEET_CSV =
-  process.env.ACCOUNTS_SHEET_CSV ||
-  path.join(__dirname, "..", "..", "..", "KLG Account list - current.csv");
+  String(process.env.ACCOUNTS_SHEET_CSV_URL || "").trim() ||
+  (SPREADSHEET_ID
+    ? `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`
+    : "");
+const LOCAL_SHEET_CSV = String(process.env.ACCOUNTS_SHEET_CSV || "").trim();
 const LOCAL_SHEET_CSV_FALLBACK = path.join(__dirname, "..", "data", "accounts-sheet.csv");
-const FIELDWORK_DB_PATH =
-  process.env.FIELDWORK_DB_PATH ||
-  "/Users/klg/Documents/GItHub/fieldwork/fieldwork/0.1.0/server/fieldwork.db";
+/** Optional path to a legacy fieldwork.db — no machine-specific default. */
+const FIELDWORK_DB_PATH = String(process.env.FIELDWORK_DB_PATH || "").trim();
 
 /** Accounts removed from Fielder — never re-add via sync. */
 const RETIRED_ACCOUNT_KEYS = new Set([
@@ -242,7 +241,7 @@ function parseSheetCsv(text) {
 }
 
 function readFieldworkAccountsCache(dbPath = FIELDWORK_DB_PATH) {
-  if (!fs.existsSync(dbPath)) return null;
+  if (!dbPath || !fs.existsSync(dbPath)) return null;
   const src = new DatabaseSync(dbPath, { readOnly: true });
   try {
     const row = src
@@ -275,6 +274,13 @@ function readLocalSheetCsv(filePath) {
 }
 
 async function fetchSheetCsv(url = ACCOUNTS_SHEET_CSV_URL) {
+  if (!url) {
+    return {
+      ok: false,
+      reason:
+        "No accounts sheet configured. Set ACCOUNTS_SHEET_ID (or ACCOUNTS_SHEET_CSV_URL), or place a CSV at server/data/accounts-sheet.csv",
+    };
+  }
   const res = await fetch(url, {
     redirect: "follow",
     headers: { "User-Agent": "Fielder/0.1 (accounts-sync)" },
@@ -395,8 +401,8 @@ async function syncAccounts() {
     ok: false,
     reason:
       remote.reason ||
-      `Could not read accounts CSV. Place "KLG Account list - current.csv" in the repo root, or share the Google Sheet.`,
-    sheetUrl: ACCOUNTS_SHEET_URL,
+      "Could not read accounts CSV. Set ACCOUNTS_SHEET_ID, or place a CSV at server/data/accounts-sheet.csv.",
+    sheetUrl: ACCOUNTS_SHEET_URL || null,
     added: [],
     updated: [],
   };

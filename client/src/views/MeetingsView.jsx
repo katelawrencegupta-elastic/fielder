@@ -37,9 +37,6 @@ const DETAIL_TABS = [
   { key: "notes", label: "Notes" },
   { key: "followups", label: "Follow-ups" },
 ];
-const ACCOUNTS_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1c0nleBeyOIth4lj3N71Zga69Sq324DgvlzmrDtYhhf8/edit";
-
 function pocIdForItem(item, pocs) {
   const folder = String(item?.poc || "").trim().toLowerCase();
   const account = String(item?.account || "").trim().toLowerCase();
@@ -88,6 +85,7 @@ export default function MeetingsView({
 }) {
   const ae = filters.ae || null;
   const [syncing, setSyncing] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState("");
   const [status, setStatus] = useState("loading");
   const [hits, setHits] = useState([]);
   const [followups, setFollowups] = useState([]);
@@ -375,11 +373,25 @@ export default function MeetingsView({
     kind: selectedHit?.kind || "",
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getAccountsConfig()
+      .then((cfg) => {
+        if (!cancelled && cfg?.sheetUrl) setSheetUrl(String(cfg.sheetUrl));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function syncAccounts() {
     setSyncing(true);
     try {
       const result = await api.syncAccounts();
       if (Array.isArray(result.accounts)) onAccountsChange?.(result.accounts);
+      if (result.sheetUrl) setSheetUrl(String(result.sheetUrl));
       const added = result.added?.length || 0;
       flash?.(
         added
@@ -888,9 +900,11 @@ export default function MeetingsView({
           <button type="button" onClick={syncAccounts} disabled={syncing} title="Sync accounts">
             {syncing ? "Syncing…" : "Sync"}
           </button>
-          <a className="btn-link" href={ACCOUNTS_SHEET_URL} target="_blank" rel="noreferrer">
-            Sheet
-          </a>
+          {sheetUrl ? (
+            <a className="btn-link" href={sheetUrl} target="_blank" rel="noreferrer">
+              Sheet
+            </a>
+          ) : null}
           {status === "ok" && (
             <button type="button" onClick={() => setShowArchived((v) => !v)}>
               {showArchived ? "Hide archived" : "Show archived"}

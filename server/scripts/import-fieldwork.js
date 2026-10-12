@@ -20,13 +20,20 @@ const { normalizeAccountKey } = require("../db/accountAliases");
 
 seed(); // ensure accounts/stages exist even if this runs before the server has started
 
-const DEFAULT_SOURCE_PATH =
-  "/Users/klg/Documents/GItHub/fieldwork/fieldwork/0.1.0/server/fieldwork.db";
-
 function main() {
   const args = process.argv.slice(2);
   const force = args.includes("--force");
-  const sourcePath = args.find((a) => !a.startsWith("--")) || DEFAULT_SOURCE_PATH;
+  const sourcePath =
+    args.find((a) => !a.startsWith("--")) ||
+    String(process.env.FIELDWORK_DB_PATH || "").trim();
+
+  if (!sourcePath) {
+    console.error(
+      "Usage: node server/scripts/import-fieldwork.js <path-to-fieldwork.db> [--force]\n" +
+        "   or: FIELDWORK_DB_PATH=/path/to/fieldwork.db node server/scripts/import-fieldwork.js"
+    );
+    process.exit(1);
+  }
 
   if (!fs.existsSync(sourcePath)) {
     console.error(`Source fieldwork.db not found at: ${sourcePath}`);

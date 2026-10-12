@@ -86,6 +86,7 @@ function meetingsQuery(params) {
 
 export const api = {
   getAccounts: () => req("GET", "/accounts"),
+  getAccountsConfig: () => req("GET", "/accounts/config"),
   syncAccounts: () => req("POST", "/accounts/sync"),
 
   getStages: () => req("GET", "/stages"),

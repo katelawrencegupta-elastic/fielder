@@ -1,30 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template: replace __HOME__ with $HOME before installing (see fielder-ctl / install scripts). -->
 <plist version="1.0">
 <dict>
   <key>Label</key>
   <string>com.fielder.client</string>
   <key>WorkingDirectory</key>
-  <string>/Users/klg/Library/Application Support/Fielder</string>
+  <string>__HOME__/Library/Application Support/Fielder</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/klg/Library/Application Support/Fielder/run-client.sh</string>
+    <string>__HOME__/Library/Application Support/Fielder/run-client.sh</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
     <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
     <key>HOME</key>
-    <string>/Users/klg</string>
+    <string>__HOME__</string>
   </dict>
   <key>RunAtLoad</key>
   <false/>
   <key>KeepAlive</key>
   <false/>
   <key>StandardOutPath</key>
-  <string>/Users/klg/Library/Application Support/Fielder/logs/client.log</string>
+  <string>__HOME__/Library/Application Support/Fielder/logs/client.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/klg/Library/Application Support/Fielder/logs/client.log</string>
+  <string>__HOME__/Library/Application Support/Fielder/logs/client.log</string>
 </dict>
 </plist>
