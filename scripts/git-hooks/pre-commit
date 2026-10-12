@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Reject commits that re-add local secrets, databases, logs, or build junk.
+set -euo pipefail
+
+blocked=$(
+  git diff --cached --name-only --diff-filter=ACMR |
+    grep -E '(^|/)\.env($|\.)|(^|/)calendar\.json$|\.db(-wal|-shm)?$|(^|/)logs/|(^|/)node_modules/|(^|/)client/dist/' ||
+    true
+)
+
+if [[ -n "${blocked}" ]]; then
+  echo "pre-commit: refusing to commit local/secret artifacts:" >&2
+  echo "${blocked}" | sed 's/^/  /' >&2
+  echo >&2
+  echo "These paths are gitignored. Use .env.example for env templates." >&2
+  exit 1
+fi
+
+exit 0

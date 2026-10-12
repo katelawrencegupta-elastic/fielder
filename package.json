@@ -15,6 +15,8 @@
     "seed": "node server/db/seed.js",
     "fielder": "bash scripts/fielder-ctl.sh",
     "menubar": "npm start --prefix menubar",
-    "menubar:install": "bash scripts/install-menubar.sh"
+    "menubar:install": "bash scripts/install-menubar.sh",
+    "hooks:install": "bash scripts/install-git-hooks.sh",
+    "prepare": "bash scripts/install-git-hooks.sh"
   }
 }

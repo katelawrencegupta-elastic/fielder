@@ -18,17 +18,20 @@ Requires **Node 22.5+** (built-in `node:sqlite` support); tested on Node 26.
 ## Setup
 
 ```bash
-npm install                 # installs both server + client workspaces
-cp .env.example .env        # optional: add a GITHUB_TOKEN to raise the POC-sync rate limit
+npm install                 # installs workspaces + local git hooks (see Data safety)
+cp .env.example .env        # never commit .env — fill in optional tokens/URLs locally
 ```
+
+Optional in `.env`: `GITHUB_TOKEN`, `ACCOUNTS_SHEET_ID`, `SCRAPPY_URL`, `CALENDAR_ICS_URL`, `FIELDWORK_DB_PATH`.
+Accounts can also sync from a CSV at `server/data/accounts-sheet.csv`.
 
 ### One-time: import existing tasks from `fieldwork`
 
 If you have the older `fieldwork` app's task history, pull it in once:
 
 ```bash
-npm run migrate:fieldwork
-# or, for a non-default path:
+FIELDWORK_DB_PATH=/path/to/fieldwork.db npm run migrate:fieldwork
+# or:
 node server/scripts/import-fieldwork.js /path/to/fieldwork.db
 ```
 
@@ -79,9 +82,15 @@ syncing only overwrites a field if the manifest actually sets it. See the
 
 ## Data safety
 
-- The DB (`server/fielder.db`) is a real file-backed SQLite database (WAL mode).
+- The DB (`server/fielder.db`) is a real file-backed SQLite database (WAL mode). It is **gitignored** — keep it local (or under Application Support via ctl).
+- Never commit `.env`, `calendar.json`, `*.db` / WAL sidecars, `logs/`, `node_modules/`, or `client/dist/`. `npm install` wires a pre-commit hook (`npm run hooks:install`) that blocks those paths.
 - A snapshot is written to `server/snapshots/` every hour. Use the **Snapshots** menu in the app header to save one on demand or restore an older one (restore reopens the database in-process; no server restart).
 - **Export** (top right) downloads all tasks as JSON; **Import** accepts that same JSON shape to bulk-add tasks.
+
+### Rotating calendar secrets (if they were ever committed)
+
+1. **Google Calendar ICS** — Calendar settings → Integrate calendar → reset the secret iCal address → set `CALENDAR_ICS_URL` in local `.env`.
+2. **Zoom** — Regenerate passcodes (or new meeting IDs) for any standing meetings whose join links with `pwd=` appeared in an old `calendar.json`.
 
 ## Project layout
 
